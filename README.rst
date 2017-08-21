@@ -3,7 +3,7 @@ Introduction
 
 This repository is a work in progress repository.
 
-Documentation can be found here:
+Documentation can be found here: `http://rrmpg.readthedocs.io <http://rrmpg.readthedocs.io>`_
 
 Idea
 ----
