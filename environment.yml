@@ -1,0 +1,10 @@
+ name: rrmpg
+ dependencies:
+   - python=3.6
+   - numpy
+   - matplotlib
+   - numba
+   - jupyter
+   - ipython
+   - pandas
+   - scipy

@@ -1,11 +1,12 @@
-RRMPG: Rainfall-Runoff modelling playground
-##########################################
+Introduction
+############
 
 This repository is a work in progress repository.
 
+Documentation can be found here:
 
 Idea
-====
+----
 One of the fundamental parts of hydrology is rainfall-runoff-modelling. The task here is to model the response of a catchment to meteorological input data and to forecast the river discharge. There are different approaches to tackle the problem, namely: conceptual models, physical-based models and data-driven models.
 
 Although this is taught at university, often hands-on experience is missing or is done on using very simple modelling approaches. One of the main reasons I see is, that most (at least the complex ones) hydrological models are implemented in Fortran but very few students of the field of hydrology know Fortran, when they first get in touch with RR-Models. So all they can probably do is simply apply a model to their data and play manually with parameter tuning, but not explore the model and see the effect of code changes.
@@ -24,17 +25,17 @@ First performance comparisons between Fortran implementations and numba optimize
 
 
 What's next?
-============
+------------
 
-During the next days/weeks I'll start to add content to this repository, as well as writing a detailed documentation of all functions and classes within this repository.
+During the next days/weeks I'll start to add more and more content to this repository. If you have any questions feel free to ask.
 
 
 You want to contribute?
-=======================
+-----------------------
 
 At the moment I'm looking for a selection of hydrological models I'll implement in Python. If you want to see any (your?) model in this project, feel free to contact me.
 
 Contact
-=======
+-------
 
 Raise an issue here in this repository or contact me by mail f.kratzert(at)gmail.com
