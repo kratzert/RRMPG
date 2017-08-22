@@ -1,0 +1,13 @@
+ name: docenv3
+ dependencies:
+   - python=3.6
+   - numpy
+   - matplotlib
+   - numba
+   - jupyter
+   - ipython
+   - pandas
+   - scipy
+   - sphinx
+   - sphinx_rtd_theme
+   - pandoc

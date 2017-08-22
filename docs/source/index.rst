@@ -13,7 +13,7 @@ Welcome to RRMPG's documentation!
 
    getting_started
    api/documentation
-   examples
+   examples/examples
    wiki
    contribution
 

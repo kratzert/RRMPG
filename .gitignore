@@ -10,4 +10,5 @@ build/
 docs/build/
 .settings/
 rrmpg/data/
-examples/
+examples/*.ipynb
+.ipynb_checkpoints/
