@@ -123,8 +123,11 @@ class HBVEdu(BaseModel):
             each of the four reservoirs.
 
         Raises:
-            ValueError: If one of the inputs is not a correct data type or
-                value.
+            ValueError: If one of the inputs contains invalid values.
+            TypeError: If one of the inputs has an incorrect datatype.
+            RuntimeErrror: If the monthly arrays are not of size 12 or there 
+                is a size mismatch between precipitation, temperature and the
+                month array.
 
         """
         # Validation check of the temperature, precipitation and input
@@ -138,7 +141,7 @@ class HBVEdu(BaseModel):
         if any(len(arr) != len(temp) for arr in [prec, month]):
             msg = ["The arrays of the temperature, precipitation and month ",
                    "data must be of equal size."]
-            raise ValueError("".join(msg))
+            raise RuntimeError("".join(msg))
 
         # Validation check for PE_m and T_m
         PE_m = validate_array_input(PE_m, np.float64, 'PE_m')
@@ -146,7 +149,7 @@ class HBVEdu(BaseModel):
         if any(len(arr) != 12 for arr in [PE_m, T_m]):
             msg = ["The monthly potential evapotranspiration and temperature",
                    " array must be of length 12."]
-            raise ValueError("".join(msg))
+            raise RuntimeError("".join(msg))
 
         # Check if entires of month array are between 1 and 12
         if (np.min(month) < 1) or (np.max(month) > 12):
@@ -223,6 +226,13 @@ class HBVEdu(BaseModel):
 
         Returns:
             res: A scipy OptimizeResult class object.
+            
+        Raises:
+            ValueError: If one of the inputs contains invalid values.
+            TypeError: If one of the inputs has an incorrect datatype.
+            RuntimeErrror: If the monthly arrays are not of size 12 or there 
+                is a size mismatch between precipitation, temperature and the
+                month array.
 
         """
         # Validation check of the temperature, precipitation and input
@@ -236,7 +246,7 @@ class HBVEdu(BaseModel):
         if any(len(arr) != len(temp) for arr in [prec, month]):
             msg = ["The arrays of the temperature, precipitation and month ",
                    "data must be of equal size."]
-            raise ValueError("".join(msg))
+            raise RuntimeError("".join(msg))
 
         # Validation check for PE_m and T_m
         PE_m = validate_array_input(PE_m, np.float64, 'PE_m')
@@ -244,7 +254,7 @@ class HBVEdu(BaseModel):
         if any(len(arr) != 12 for arr in [PE_m, T_m]):
             msg = ["The monthly potential evapotranspiration and temperature",
                    " array must be of length 12."]
-            raise ValueError("".join(msg))
+            raise RuntimeError("".join(msg))
 
         # Check if entires of month array are between 1 and 12
         if (np.min(month) < 1) or (np.max(month) > 12):

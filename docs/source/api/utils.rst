@@ -9,6 +9,14 @@ Plot utils
 
 .. autofunction:: plot_qsim_range
 
+Metrics
+-------
+.. currentmodule:: rrmpg.utils.metrics
+
+.. autofunction:: mse
+.. autofunction:: rmse
+.. autofunction:: nse
+
 Array Checks
 ------------
 .. currentmodule:: rrmpg.utils.array_checks

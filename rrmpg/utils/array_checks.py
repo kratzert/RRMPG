@@ -16,6 +16,9 @@ from numba import njit
 def check_for_negatives(arr):
     """Check if array contains negative number.
     
+    Numba optimized function to check if a numpy array containes a negative
+    value. Returns, whenever the first negative function is found.
+    
     Args:
         arr: Numpy array
     
@@ -47,7 +50,9 @@ def validate_array_input(arr, dtype, arr_name):
         specified in the input argument.
 
     Raises:
-        ValueError in case of incorrect inputs or datatypes.
+        ValueError: In case non-numerical data is passed
+        TypeError: If the error is neither a list, a numpy.ndarray nor a 
+            pandas.Series
 
     """
     # Check for correct data type
@@ -62,7 +67,7 @@ def validate_array_input(arr, dtype, arr_name):
     else:
         msg = ["The array {} must be either a list, ".format(arr_name),
                "numpy.ndarray or pandas.Series"]
-        raise ValueError("".join(msg))
+        raise TypeError("".join(msg))
     
     # return converted array
     return arr

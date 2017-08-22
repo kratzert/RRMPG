@@ -10,10 +10,10 @@
 """Implementation of Monte_Carlo-Simulation for rrmpg.models."""
 
 import numpy as np
-import pandas as pd
 
 from ..models.basemodel import BaseModel
 from ..utils.metrics import nse
+from ..utils.array_checks import validate_array_input
 
 
 def monte_carlo(model, num, qobs, **kwargs):
@@ -38,32 +38,22 @@ def monte_carlo(model, num, qobs, **kwargs):
         array with the simulated streamflow for each simulation.
 
     Raises:
-        ValueError: For incorrect inputs.
+        ValueError: If any input contains invalid values.
+        TypeError: If any of the inputs has a wrong datatype.
 
     """
     # Make sure the model contains to this repository.
     if not issubclass(model.__class__, BaseModel):
         msg = ["The model must be one of the models implemented in the ",
                "rrmpg.models module."]
-        raise ValueError("".join(msg))
+        raise TypeError("".join(msg))
 
     # Check if n is an integer.
     if not isinstance(num, int) or num < 1:
-        raise ValueError("'n' must be a positive integer greate than zero.")
+        raise TypeError("'n' must be a positive integer greate than zero.")
 
     # Validation check of qobs
-    if isinstance(qobs, (list, np.ndarray, pd.Series)):
-        # Try to convert as numpy array
-        try:
-            qobs = np.array(qobs, dtype=np.float64)
-        except:
-            msg = ["The data of the 'qobs' array must be must be purely ",
-                   "numerical."]
-            raise ValueError("".join(msg))
-    else:
-        msg = ["The array 'qobs' must be either a list, numpy.ndarray or ",
-               "pandas.Series"]
-        raise ValueError("".join(msg))
+    qobs = validate_array_input(qobs, np.float64, 'qobs')
 
     # Initialize arrays for the params, simulations and model efficiency
     params = np.zeros(num, dtype=model.get_dtype())

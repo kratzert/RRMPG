@@ -13,7 +13,6 @@
 import numbers
 
 import numpy as np
-import pandas as pd
 
 from numpy.random import uniform
 
@@ -48,8 +47,8 @@ class BaseModel(object):
                 seperate key/value pairs.
 
         Raises:
-            ValueError: If Area isn't a positive numerical value or on model
-                parameter is missing in the passed dictonary.
+            AttributeError: If a model parameter is missing in the passed 
+                dictonary.
 
         """
         # Check if params are passed
@@ -57,8 +56,8 @@ class BaseModel(object):
             # Check if a value for each parameter is passed
             missings = [p for p in self._param_list if p not in params.keys()]
             if len(missings) > 0:
-                raise ValueError("Missing the following model parameters: "
-                                 "{}".format(missings))
+                raise AttributeError("Missing the following model parameters: "
+                                     "{}".format(missings))
         else:
             # Generate random model parameters
             params = self.get_random_params()
@@ -105,8 +104,9 @@ class BaseModel(object):
                 _param_list. All parameter values must be numerical.
 
         Raises:
-            ValueError: If wrong parameter names or incorrect parameter values
-                are passed.
+            ValueError: If any parameter is not a numerical value.
+            AttributeError: If the parameter dictonary contains a key, that 
+                doesn't match any of the parameter names.
 
         """
         for param, value in params.items():
@@ -124,7 +124,7 @@ class BaseModel(object):
                        "Name must match one of the model parameters."
                        "Use {}".format(self.__class__.__name__),
                        ".get_parameter_names() to get a list of valid names."]
-                raise ValueError("".join(msg))
+                raise AttributeError("".join(msg))
 
     def get_parameter_names(self):
         """Return the list of parameter names."""

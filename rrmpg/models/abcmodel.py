@@ -85,8 +85,8 @@ class ABCModel(BaseModel):
             optional an array with the simulated storage.
 
         Raises:
-            ValueError: If one of the inputs is not a correct data type or
-                value.
+            ValueError: If one of the inputs contains invalid values.
+            TypeError: If one of the inputs has an incorrect datatype.
 
         """
         # Validation check of the precipitation input
@@ -100,14 +100,14 @@ class ABCModel(BaseModel):
         if not isinstance(initial_state, numbers.Number) or initial_state < 0:
             msg = ["The variable 'initial_state' must be a numercial scaler ",
                    "greate than 0."]
-            raise ValueError("".join(msg))
+            raise TypeError("".join(msg))
 
         # Cast initial state as float
         initial_state = float(initial_state)
 
         # Validation check of the return_storage
         if not isinstance(return_storage, bool):
-            raise ValueError("The return_storage arg must be a boolean.")
+            raise TypeError("The return_storage arg must be a boolean.")
 
         # Create custom numpy data structure containing the model parameters
         params = np.zeros(1, dtype=self._dtype)
@@ -140,6 +140,10 @@ class ABCModel(BaseModel):
 
         Returns:
             res: A scipy OptimizeResult class object.
+            
+        Raises:
+            ValueError: If one of the inputs contains invalid values.
+            TypeError: If one of the inputs has an incorrect datatype.
 
         """
         # Validation check of the inputs
@@ -150,8 +154,11 @@ class ABCModel(BaseModel):
         if check_for_negatives(prec):
             raise ValueError("In the precipitation array are negative values.")
         
-        if not isinstance(initial_state, numbers.Number):
-            raise ValueError("The initial_state must be a numerical scalar.")
+        # Validation check of the initial state
+        if not isinstance(initial_state, numbers.Number) or initial_state < 0:
+            msg = ["The variable 'initial_state' must be a numercial scaler ",
+                   "greate than 0."]
+            raise TypeError("".join(msg))
         
         # Cast initial state as float
         initial_state = float(initial_state)
