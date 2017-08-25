@@ -383,14 +383,14 @@ def _simulate_hbv_edu(temp, prec, month, PE_m, T_m, snow_init, soil_init,
         if soil[t-1] > PWP:
             ea = pe
         else:
-            ea = pe * (soil[t] / PWP)
+            ea = pe * (soil[t-1] / PWP)
 
         # calculate the actual level of the soil reservoir
         soil[t] = soil[t-1] + liquid_water - prec_eff - ea
 
         # calculate the actual level of the near surface flow reservoir
         s1[t] = (s1[t-1]
-                 + liquid_water
+                 + prec_eff
                  - max(0, s1[t-1] - L) * K_0
                  - s1[t-1] * K_1
                  - s1[t-1] * K_p)
