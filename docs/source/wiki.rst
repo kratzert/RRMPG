@@ -1,3 +1,4 @@
+.. _wiki_top:
 Wiki
 ====
 
