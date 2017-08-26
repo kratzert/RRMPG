@@ -16,7 +16,7 @@ from ..utils.metrics import nse
 from ..utils.array_checks import validate_array_input
 
 
-def monte_carlo(model, num, qobs, **kwargs):
+def monte_carlo(model, num, qobs=None, **kwargs):
     """Perform Monte-Carlo-Simulation.
 
     This function performs a Monte-Carlo-Simulation for any given hydrological
@@ -25,17 +25,18 @@ def monte_carlo(model, num, qobs, **kwargs):
     Args:
         model: Any instance of a hydrological model of this repository.
         num: Number of simulations.
-        qobs: Array of observed streamflow.
+        qobs: (optional) Array of observed streamflow.
         **kwargs: Keyword arguments, matching the inputs the model needs to
             perform a simulation (e.g. qobs, precipitation, temperature etc.).
             See help(model.simulate) for model input requirements.
 
     Returns:
-        A dictonary containing the following three keys ['params', 'nse',
-        'qsim']. The key 'params' contains a numpy array with the model
-        parameter of each simulation. 'nse' contains the
-        Nash-Sutcliff-Efficiency of each simulation, and 'qsim' is a 2D numpy
-        array with the simulated streamflow for each simulation.
+        A dictonary containing the following two keys ['params', 'qsim']. The 
+        key 'params' contains a numpy array with the model parameter of each 
+        simulation. 'qsim' is a 2D numpy array with the simulated streamflow 
+        for each simulation. If an array of observed streamflow is provided,
+        one additional key is returned in the dictonary, being 'nse'. This key
+        contains an array of the Nash-Sutcliff-Efficiency for each simulation.
 
     Raises:
         ValueError: If any input contains invalid values.
@@ -52,9 +53,10 @@ def monte_carlo(model, num, qobs, **kwargs):
     if not isinstance(num, int) or num < 1:
         raise TypeError("'n' must be a positive integer greate than zero.")
 
-    # Validation check of qobs
-    qobs = validate_array_input(qobs, np.float64, 'qobs')
-
+    if qobs is not None: 
+        # Validation check of qobs
+        qobs = validate_array_input(qobs, np.float64, 'qobs')
+    
     # Initialize arrays for the params, simulations and model efficiency
     params = np.zeros(num, dtype=model.get_dtype())
     qsim = np.zeros((len(qobs), num), dtype=np.float64)
@@ -74,8 +76,13 @@ def monte_carlo(model, num, qobs, **kwargs):
 
         # calculate simulation
         qsim[:, n] = model.simulate(**kwargs)
-
-        # calculate model efficiency
-        nse_values[n] = nse(qobs, qsim[:, n])
-
-    return {'params': params, 'nse': nse_values, 'qsim': qsim}
+        
+        if qobs is not None: 
+            # calculate model efficiency
+            nse_values[n] = nse(qobs, qsim[:, n])
+            
+    if qobs is not None:       
+        return {'params': params, 'qsim': qsim, 'nse': nse_values}
+    
+    else:
+        return {'params': params, 'qsim': qsim}
