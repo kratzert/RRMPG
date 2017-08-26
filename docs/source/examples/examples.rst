@@ -6,4 +6,4 @@ Here will follow some example applications of the RRMPG library.
 .. toctree::
    :maxdepth: 1
 
-   monte_carlo
+   speed_comparision
