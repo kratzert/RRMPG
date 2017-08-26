@@ -59,7 +59,7 @@ def monte_carlo(model, num, qobs=None, **kwargs):
     
     # Initialize arrays for the params, simulations and model efficiency
     params = np.zeros(num, dtype=model.get_dtype())
-    qsim = np.zeros((len(qobs), num), dtype=np.float64)
+    qsim = np.zeros((len(kwargs['prec']), num), dtype=np.float64)
     nse_values = np.zeros(num, dtype=np.float64)
 
     # Perform monte-carlo-simulations
