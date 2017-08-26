@@ -66,6 +66,36 @@ class ABCModel(BaseModel):
 
         """
         super().__init__(params=params)
+        
+    def get_random_params(self):
+        """Generate a random set of model parameters for the ABC-model
+
+        The ABC-model has specific parameter constraints, therefore we will 
+        overwrite the function of the BaseModel, to generated random model
+        parameters, that satisfy the ABC-Model constraints.
+
+        Returns:
+            A dict containing one key/value pair for each model parameter.
+
+        """
+        params = {}
+        
+        # sample parameter 'a' between the bounds [0,1]
+        params['a'] = np.random.uniform(low=self._default_bounds['a'][0],
+                                        high=self._default_bounds['a'][1],
+                                        size=1)[0]
+        
+        # sample parameter 'b' between lower bound 0 and upper bound (1 - a)
+        params['b'] = np.random.uniform(low=self._default_bounds['b'][0],
+                                        high=(1-params['a']),
+                                        size=1)[0]
+        
+        # parameter 'c' must be between [0,1] and has no further constraints
+        params['c'] = np.random.uniform(low=self._default_bounds['c'][0],
+                                        high=self._default_bounds['c'][1],
+                                        size=1)[0]
+        
+        return params
 
     def simulate(self, prec, initial_state=0, return_storage=False):
         """Simulate the streamflow for the passed precipitation.
