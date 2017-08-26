@@ -75,7 +75,7 @@ This should be commonsense but I would like to remind you to cite every work of 
 .. _here: https://conda.io/docs/user-guide/tasks/manage-environments.html
 
 
-Contribute to the the code base
+Contribute to the code base
 -------------------------------
 
 If you find any mistake/bug in the code or want to add new functionality to the code base, you should make sure that your code satisfies the following points.
