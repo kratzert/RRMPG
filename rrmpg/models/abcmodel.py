@@ -15,10 +15,10 @@ import numbers
 import numpy as np
 
 from numba import njit
-from scipy.optimize import minimize
+from scipy import optimize
 
 from .basemodel import BaseModel
-from ..utils.metrics import nse
+from ..utils.metrics import mse
 from ..utils.array_checks import check_for_negatives, validate_array_input
 
 
@@ -153,20 +153,17 @@ class ABCModel(BaseModel):
             qsim, _ = _simulate_abc(params, prec, initial_state)
             return qsim
 
-    def fit(self, qobs, prec, initial_state=0, x0=None, method=None):
+    def fit(self, qobs, prec, initial_state=0):
         """Fit the model to a timeseries of discharge using.
 
-        This functions uses scipy's minimize optimizer to find a good set of
-        parameters for the model, so that the observed discharge is simulated
-        as good as possible.
+        This functions uses scipy's global optimizer (differential evolution)
+        to find a good set of parameters for the model, so that the observed 
+        discharge is simulated as good as possible.
 
         Args:
             qobs: Array of observed streaflow discharge.
             prec: Array of precipitation data.
             initial_state: (optional) Initial value for the storage.
-            x0: (optional) Initial guess of parameter values. If not passed,
-                random parameters will be used as starting point.
-            method: String specifing one of scipy's minimizer methods.
 
         Returns:
             res: A scipy OptimizeResult class object.
@@ -193,17 +190,12 @@ class ABCModel(BaseModel):
         # Cast initial state as float
         initial_state = float(initial_state)
 
-        # If no parameter guess were passed, generate random values
-        if not x0:
-            rand_params = self.get_random_params()
-            x0 = [rand_params[p] for p in self._param_list]
-
         # pack input arguments for scipy optimizer
         args = (prec, initial_state, qobs, self._dtype)
         bnds = tuple([self._default_bounds[p] for p in self._param_list])
 
         # call the actual optimizer function
-        res = minimize(_loss, x0, args=args, method=method, bounds=bnds)
+        res = optimize.differential_evolution(_loss, bounds=bnds, args=args)
 
         return res
 
@@ -223,10 +215,10 @@ def _loss(X, *args):
     params['c'] = X[2]
 
     # Calculate the simulated streamflow
-    qsim = _simulate_abc(params, prec, initial_state)
+    qsim, _ = _simulate_abc(params, prec, initial_state)
 
-    # Calculate the Nash-Sutfliff model efficiency
-    loss_value = -1 * (nse(qobs, qsim))
+    # Calculate the Mean-Squared-Error as optimization criterion
+    loss_value = mse(qobs, qsim)
 
     return loss_value
 

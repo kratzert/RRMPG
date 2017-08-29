@@ -315,7 +315,7 @@ def _loss(X, *args):
     # transform discharge to m³/s
     qsim = (qsim * area * 1000) / (24 * 60 * 60)
 
-    # Calculate the Nash-Sutfliff model efficiency
+    # Calculate the Mean-Squared-Error as optimization criterion
     loss_value = mse(qobs, qsim)
 
     return loss_value
