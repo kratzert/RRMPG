@@ -12,7 +12,7 @@
 import numpy as np
 
 from ..models.basemodel import BaseModel
-from ..utils.metrics import nse
+from ..utils.metrics import nse, mse
 from ..utils.array_checks import validate_array_input
 
 
@@ -79,10 +79,10 @@ def monte_carlo(model, num, qobs=None, **kwargs):
         
         if qobs is not None: 
             # calculate model efficiency
-            nse_values[n] = nse(qobs, qsim[:, n])
+            nse_values[n] = mse(qobs, qsim[:, n])
             
     if qobs is not None:       
-        return {'params': params, 'qsim': qsim, 'nse': nse_values}
+        return {'params': params, 'qsim': qsim, 'mse': nse_values}
     
     else:
         return {'params': params, 'qsim': qsim}
