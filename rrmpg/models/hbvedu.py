@@ -15,10 +15,9 @@ import numbers
 import numpy as np
 
 from numba import njit
-from scipy.optimize import minimize
-
+from scipy import optimize
 from .basemodel import BaseModel
-from ..utils.metrics import nse
+from ..utils.metrics import mse
 from ..utils.array_checks import check_for_negatives, validate_array_input
 
 
@@ -199,12 +198,12 @@ class HBVEdu(BaseModel):
         return qsim
 
     def fit(self, qobs, temp, prec, month, PE_m, T_m, snow_init=0.,
-            soil_init=0., s1_init=0., s2_init=0., x0=None, method=None):
+            soil_init=0., s1_init=0., s2_init=0.):
         """Fit the model to a timeseries of discharge using.
 
-        This functions uses scipy's minimize optimizer to find a good set of
-        parameters for the model, so that the observed discharge is simulated
-        as good as possible.
+        This functions uses scipy's global optimizer (differential evolution)
+        to find a good set of parameters for the model, so that the observed 
+        discharge is simulated as good as possible.
 
         Args:
             qobs: Array of observed streaflow discharge.
@@ -220,9 +219,6 @@ class HBVEdu(BaseModel):
             s1_init: (optional) Initial state of the near surface flow
                 reservoir.
             s2_init: (optional) Initial state of the base flow reservoir.
-            x0: (optional) Initial guess of parameter values. If not passed,
-                random parameters will be used as starting point.
-            method: String specifing one of scipy's minimizer methods.
 
         Returns:
             res: A scipy OptimizeResult class object.
@@ -271,17 +267,13 @@ class HBVEdu(BaseModel):
         s1_init = float(s1_init)
         s2_init = float(s2_init)
 
-        # If no parameter guess were passed, generate random values
-        if not x0:
-            rand_params = self.get_random_params()
-            x0 = [rand_params[p] for p in self._param_list]
-
         # pack input arguments for scipy optimizer
         args = (qobs, temp, prec, month, PE_m, T_m, snow_init, soil_init,
-                s1_init, s2_init, self._dtype)
+                s1_init, s2_init, self._dtype, self.area)
         bnds = tuple([self._default_bounds[p] for p in self._param_list])
-
-        res = minimize(_loss, x0, args=args, method=method, bounds=bnds)
+        
+        # call scipy's global optimizer
+        res = optimize.differential_evolution(_loss, bounds=bnds, args=args)
 
         return res
 
@@ -300,6 +292,7 @@ def _loss(X, *args):
     s1_init = args[8]
     s2_init = args[9]
     dtype = args[10]
+    area = args[11]
 
     # Create custom numpy array of model parameters
     params = np.zeros(1, dtype=dtype)
@@ -316,11 +309,14 @@ def _loss(X, *args):
     params['L'] = X[10]
 
     # Calculate simulated streamflow
-    qsim = _simulate_hbv_edu(temp, prec, month, PE_m, T_m, snow_init,
-                             soil_init, s1_init, s2_init, params)
+    qsim,_,_,_,_ = _simulate_hbv_edu(temp, prec, month, PE_m, T_m, snow_init,
+                                     soil_init, s1_init, s2_init, params)
+    
+    # transform discharge to m³/s
+    qsim = (qsim * area * 1000) / (24 * 60 * 60)
 
     # Calculate the Nash-Sutfliff model efficiency
-    loss_value = -1 * (nse(qobs, qsim))
+    loss_value = mse(qobs, qsim)
 
     return loss_value
 
