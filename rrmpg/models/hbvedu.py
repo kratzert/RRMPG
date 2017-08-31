@@ -48,7 +48,7 @@ class HBVEdu(BaseModel):
                    'K_p', 'L']
 
     # Dictionary with default parameter bounds
-    _default_bounds = {'T_t': (-3, 3),
+    _default_bounds = {'T_t': (-1, 1),
                        'DD': (3, 7),
                        'FC': (100, 200),
                        'Beta': (1, 7),
