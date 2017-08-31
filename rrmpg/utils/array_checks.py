@@ -59,7 +59,7 @@ def validate_array_input(arr, dtype, arr_name):
     if isinstance(arr, (list, np.ndarray, pd.Series)):
         # Try to convert as numpy array
         try:
-            arr = np.array(arr, dtype=dtype)
+            arr = np.array(arr, dtype=dtype).flatten()
         except:
             msg = ["The data in the parameter array '{}'".format(arr_name),
                    " must be purely numerical."]
