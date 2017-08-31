@@ -10,10 +10,15 @@ with the official code release by the papers authors.
 The data can be found here: http://amir.eng.uci.edu/software.php (under
 "HBV Hydrological Model")
 
-In summary we'll look at: - How you can create one of the models - How
-you can fit the model parameters to observed discharge by: - Using one
-of SciPy's global optimizer - Monte-Carlo-Simulation - How you can use a
-fitted model to calculate the simulated discharge
+In summary we'll look at:
+
+- How you can create one of the models
+- How you can fit the model parameters to observed discharge by
+
+    1. Using one of SciPy's global optimizer
+    2. Monte-Carlo-Simulation
+
+- How you can use a fitted model to calculate the simulated discharge
 
 .. code:: python
 
@@ -141,7 +146,7 @@ optimize this parameter as well.
             text-align: right;
         }
 
-        .dataframe thead th {
+        .dataframe thead th { 0.5232
             text-align: left;
         }
 
@@ -267,9 +272,10 @@ Create a model
 
 Now let's have a look how we can create one of the models implemented in
 ``rrmpg.models``. Basically for all models we have two different
-options: 1. Initialize a model with all mandatory inputs but **without**
-specific model parameters. 2. Initialize a model with all mandatory
-inputs **with** specific model parameters.
+options:
+
+1. Initialize a model with all mandatory inputs but **without** specific model parameters.
+2. Initialize a model with all mandatory inputs **with** specific model parameters.
 
 In the `documentation <http://rrmpg.readthedocs.io>`__ you can find a
 list of all model parameters or you can look at help(HBVEdu) for this
@@ -290,8 +296,10 @@ Fit the model to observed discharge
 -----------------------------------
 
 As already said above, we'll look at two different methods implemented
-in this package: 1. Using one of SciPy's global optimizer 2.
-Monte-Carlo-Simulation
+in this package:
+
+1. Using one of SciPy's global optimizer
+2. Monte-Carlo-Simulation
 
 Using one of SciPy's global optimizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -380,12 +388,13 @@ optimization prozess. Let us have a look on this object
 
 
 
-Some of the relevant informations are: - ``fun`` is the final value of
-our optimization criterion, the mean-squared-error in this case -
-``message`` describes the cause of the optimization termination -
-``nfev`` is the number of model simulations - ``sucess`` is a flag
-wether or not the optimization was successful - ``x`` are the optimized
-model parameters
+Some of the relevant informations are:
+
+- ``fun`` is the final value of our optimization criterion, the mean-squared-error in this case
+- ``message`` describes the cause of the optimization termination
+- ``nfev`` is the number of model simulations
+- ``sucess`` is a flag wether or not the optimization was successful
+- ``x`` are the optimized model parameters
 
 Now let's set the model parameter to the optimized parameter found by
 the optimizer. Therefore we need to create a dictonary containing on key
