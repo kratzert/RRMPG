@@ -74,7 +74,7 @@ class HBVEdu(BaseModel):
                        ('L', np.float64)])
 
     def __init__(self, area, params=None):
-        """Initialize an HBVEdu model object.
+        """Initialize a HBVEdu model object.
 
         Args:
             area: Area of the basin.
@@ -101,7 +101,8 @@ class HBVEdu(BaseModel):
         meteorological inputs, then calls the optimized model routine. Due
         to restrictions with the use of numba, this routine is kept outside
         of this model class.
-        The meteorological inputs can be either python lists or numpy arrays.
+        The meteorological inputs can be either list, numpy array or pandas 
+        Series.
 
         Args:
             temp: Array of (mean) temperature for each timestep.
@@ -116,6 +117,8 @@ class HBVEdu(BaseModel):
             s1_init: (optional) Initial state of the near surface flow
                 reservoir.
             s2_init: (optional) Initial state of the base flow reservoir.
+            return_storage: (optional) Boolean, indicating if the model 
+                storages should also be returned.
 
         Returns:
             An array with the simulated streamflow and optional one array for
