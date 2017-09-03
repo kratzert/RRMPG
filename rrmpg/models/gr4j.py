@@ -12,9 +12,11 @@
 import numpy as np
 
 from numba import njit
+from scipy import optimize
 
 from .basemodel import BaseModel
 from ..utils.array_checks import validate_array_input, check_for_negatives
+from ..utils.metrics import mse
 
 
 class GR4J(BaseModel):
@@ -25,6 +27,10 @@ class GR4J(BaseModel):
     
     If no model parameters are passed upon initialization, generates random
     parameter set.
+    
+    [1] Perrin, Charles, Claude Michel, and Vazken Andréassian. "Improvement 
+    of a parsimonious model for streamflow simulation." Journal of hydrology 
+    279.1 (2003): 275-289.
     
     Args:
         params: (optional) Dictonary containing all model parameters as a
@@ -65,7 +71,7 @@ class GR4J(BaseModel):
         """
         super().__init__(params=params)
         
-    def simulate(self, prec, pe, s_init=0, r_init=0, return_storage=False):
+    def simulate(self, prec, etp, s_init=0., r_init=0., return_storage=False):
         """Simulate rainfall-runoff process for given input.
         
         This function bundles the model parameters and validates the 
@@ -76,10 +82,12 @@ class GR4J(BaseModel):
         Series.
         
         Args: 
-            prec: Array of precipitation
-            pe: Array of potential evapotranspiration
-            s_init: (optional) Initial value of the production storage. 
-            r_init: (optional) Initial value of the routing storage.
+            prec: Array of daily precipitation sum [mm]
+            etp: Array of mean potential evapotranspiration [mm]
+            s_init: (optional) Initial value of the production storage as 
+                fraction of x1. 
+            r_init: (optional) Initial value of the routing storage as fraction
+                of x3.
             return_stprage: (optional) Boolean, indicating if the model 
                 storages should also be returned.
                 
@@ -96,7 +104,7 @@ class GR4J(BaseModel):
         """
         # Validation check of the inputs
         prec = validate_array_input(prec, np.float64, 'precipitation')
-        pe = validate_array_input(pe, np.float64, 'pot. evapotranspiration')
+        etp = validate_array_input(etp, np.float64, 'pot. evapotranspiration')
         
         # Check if there exist negative precipitation values in the input
         if check_for_negatives(prec):
@@ -104,7 +112,7 @@ class GR4J(BaseModel):
             raise ValueError(msg)
         
         # Check for same size of inputs
-        if len(prec) != len(pe):
+        if len(prec) != len(etp):
             msg = ["The arrays of precipitation and pot. evapotranspiration,"
                    " must be of the same size."]
             raise RuntimeError("".join(msg))
@@ -113,21 +121,125 @@ class GR4J(BaseModel):
         s_init = float(s_init)
         r_init = float(r_init)
         
+        # check if the intial values are in rage [0, 1]
+        if (s_init < 0) or (s_init > 1):
+            msg = ["The initial value of the production storage must be in ",
+                   "the range [0,1]."]
+            raise ValueError("".join(msg))
+        
+        if (r_init < 0) or (r_init > 1):
+            msg = ["The initial value of the routing storage must be in the",
+                   " range [0,1]."]
+            raise ValueError("".join(msg))
+        
         # bundle model parameters in custom numpy array
         model_params = np.zeros(1, dtype=self._dtype)
         for param in self._param_list:
             model_params[param] = getattr(self, param)
             
         if return_storage:
-            qsim, s_store, r_store = _simulate_gr4j(prec, pe, s_init, 
+            qsim, s_store, r_store = _simulate_gr4j(prec, etp, s_init, 
                                                     r_init, model_params)
             return qsim, s_store, r_store
         
         else:
-            qsim, _, _ = _simulate_gr4j(prec, pe, s_init, r_init, 
+            qsim, _, _ = _simulate_gr4j(prec, etp, s_init, r_init, 
                                         model_params)
             return qsim
+        
+    def fit(self, qobs, prec, etp, s_init=0., r_init=0.):
+        """Fit the GR4J model to a timeseries of discharge.
+        
+        This functions uses scipy's global optimizer (differential evolution)
+        to find a good set of parameters for the model, so that the observed 
+        discharge is simulated as good as possible.
+        
+        Args:
+            qobs: Array of observed streamflow discharge [mm/day]
+            prec: Array of daily precipitation sum [mm]
+            etp: Array of mean potential evapotranspiration [mm]
+            s_init: (optional) Initial value of the production storage as 
+                fraction of x1. 
+            r_init: (optional) Initial value of the routing storage as fraction
+                of x3.
+        
+        Returns:
+            res: A scipy OptimizeResult class object.
             
+        Raises:
+            ValueError: If one of the inputs contains invalid values.
+            TypeError: If one of the inputs has an incorrect datatype.
+            RuntimeErrror: If there is a size mismatch between the 
+                precipitation and the pot. evapotranspiration input.
+        
+        """
+        # Validation check of the inputs
+        prec = validate_array_input(prec, np.float64, 'precipitation')
+        etp = validate_array_input(etp, np.float64, 'pot. evapotranspiration')
+        qobs = validate_array_input(qobs, np.float64, 'observed discharge')
+        
+        # Check if there exist negative precipitation values in the input
+        if check_for_negatives(prec):
+            msg = "The precipitation array contains negative values."
+            raise ValueError(msg)
+        
+        # Check for same size of inputs
+        if len(prec) != len(etp):
+            msg = ["The arrays of precipitation and pot. evapotranspiration,"
+                   " must be of the same size."]
+            raise RuntimeError("".join(msg))
+        
+        # Make sure the intial storage values are floating point numbers
+        s_init = float(s_init)
+        r_init = float(r_init)
+        
+        # check if the intial values are in rage [0, 1]
+        if (s_init < 0) or (s_init > 1):
+            msg = ["The initial value of the production storage must be in ",
+                   "the range [0,1]."]
+            raise ValueError("".join(msg))
+        
+        if (r_init < 0) or (r_init > 1):
+            msg = ["The initial value of the routing storage must be in the",
+                   " range [0,1]."]
+            raise ValueError("".join(msg))
+        
+        # pack input arguments for scipy optimizer
+        args = (qobs, prec, etp, s_init, r_init, self._dtype)
+        bnds = tuple([self._default_bounds[p] for p in self._param_list])
+        
+        # call scipy's global optimizer
+        res = optimize.differential_evolution(_loss, bounds=bnds, args=args)
+
+        return res
+    
+    
+def _loss(X, *args):
+    """Return the loss value for the current parameter set."""
+    # Unpack static arrays
+    qobs = args[0]
+    prec = args[1]
+    etp = args[2]
+    s_init = args[3]
+    r_init = args[4]
+    dtype = args[5]
+    
+    # Create custom numpy array of model parameters
+    params = np.zeros(1, dtype=dtype)
+    params['x1'] = X[0]
+    params['x2'] = X[1]
+    params['x3'] = X[2]
+    params['x4'] = X[3]
+    
+    # Calculate simulated streamflow
+    qsim, _, _ = _simulate_gr4j(prec, etp, s_init, r_init, params)
+    
+    # Calculate the loss of the fit as the mean squared error
+    loss_value = mse(qobs, qsim)
+    
+    return loss_value
+
+  
 @njit
 def _s_curve1(t, x4):
     """Calculate the s-curve of the unit-hydrograph 1.
@@ -143,6 +255,7 @@ def _s_curve1(t, x4):
         return (t / x4)**2.5
     else:
         return 1.
+
 
 @njit 
 def _s_curve2(t, x4): 
@@ -162,8 +275,9 @@ def _s_curve2(t, x4):
     else:
         return 1.
 
+
 @njit           
-def _simulate_gr4j(prec, pe, s_init, r_init, model_params):
+def _simulate_gr4j(prec, etp, s_init, r_init, model_params):
     """Actual run function of the gr4j hydrological model."""
     # Unpack the model parameters
     x1 = model_params['x1'][0]
@@ -181,8 +295,8 @@ def _simulate_gr4j(prec, pe, s_init, r_init, model_params):
     
     
     # set initial values
-    s_store[0] = s_init
-    r_store[0] = r_init
+    s_store[0] = s_init * x1
+    r_store[0] = r_init * x3
     
     # calculate number of unit hydrograph ordinates
     num_uh1 = int(np.ceil(x4))
@@ -206,8 +320,8 @@ def _simulate_gr4j(prec, pe, s_init, r_init, model_params):
     for t in range(1, num_timesteps):
         
         # Calculate netto precipitation and evaporation
-        if prec[t] >= pe[t]:
-            p_n = prec[t-1] - pe[t-1]
+        if prec[t] >= etp[t]:
+            p_n = prec[t-1] - etp[t-1]
             pe_n = 0
         
             # calculate fraction of netto precipitation that fills production 
@@ -220,7 +334,7 @@ def _simulate_gr4j(prec, pe, s_init, r_init, model_params):
         
         else:
             p_n = 0
-            pe_n = pe[t-1] - prec[t-1]
+            pe_n = etp[t-1] - prec[t-1]
             
             # calculate the fraction of the evaporation that will evaporate 
             # from the production store (eq. 4)
