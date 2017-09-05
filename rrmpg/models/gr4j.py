@@ -257,7 +257,7 @@ def _s_curve1(t, x4):
         return 1.
 
 
-@njit 
+@njit
 def _s_curve2(t, x4): 
     """Calculate the s-curve of the unit-hydrograph 2.
     
@@ -275,8 +275,7 @@ def _s_curve2(t, x4):
     else:
         return 1.
 
-
-@njit           
+@njit        
 def _simulate_gr4j(prec, etp, s_init, r_init, model_params):
     """Actual run function of the gr4j hydrological model."""
     # Unpack the model parameters
@@ -288,11 +287,16 @@ def _simulate_gr4j(prec, etp, s_init, r_init, model_params):
     # get the number of simulation timesteps
     num_timesteps = len(prec)
     
-    # initialize empty arrays for production (s), routing (r) store and qsim
-    s_store = np.zeros(num_timesteps, np.float64)
-    r_store = np.zeros(num_timesteps, np.float64)
-    qsim = np.zeros(num_timesteps, np.float64)
+    # initialize empty arrays with one additional timestep, since the 0th will
+    # be used as intial state and the first simulated is the array entry 1
+    s_store = np.zeros(num_timesteps + 1, np.float64)
+    r_store = np.zeros(num_timesteps + 1, np.float64)
+    qsim = np.zeros(num_timesteps + 1, np.float64)
     
+    # for clean array indexing, add 0 element at the 0th index of prec and etp
+    # so we start simulating at the index 1
+    prec = np.concatenate((np.zeros(1), prec))
+    etp = np.concatenate((np.zeros(1), etp))
     
     # set initial values
     s_store[0] = s_init * x1
@@ -317,11 +321,11 @@ def _simulate_gr4j(prec, etp, s_init, r_init, model_params):
     uh2 = np.zeros(num_uh2, np.float64)
     
     # Start the model simulation loop
-    for t in range(1, num_timesteps):
+    for t in range(1, num_timesteps+1):
         
         # Calculate netto precipitation and evaporation
         if prec[t] >= etp[t]:
-            p_n = prec[t-1] - etp[t-1]
+            p_n = prec[t] - etp[t]
             pe_n = 0
         
             # calculate fraction of netto precipitation that fills production 
@@ -334,7 +338,7 @@ def _simulate_gr4j(prec, etp, s_init, r_init, model_params):
         
         else:
             p_n = 0
-            pe_n = etp[t-1] - prec[t-1]
+            pe_n = etp[t] - prec[t]
             
             # calculate the fraction of the evaporation that will evaporate 
             # from the production store (eq. 4)
@@ -386,7 +390,8 @@ def _simulate_gr4j(prec, etp, s_init, r_init, model_params):
         
         # total discharge of this timestep
         qsim[t] = q_r + q_d
-        
-    return qsim, s_store, r_store
+     
+    # only return the simulated timesteps, not the intial state 0    
+    return qsim[1:], s_store[1:], r_store[1:]
             
         

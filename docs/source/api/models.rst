@@ -6,6 +6,13 @@ Documentation of all hydrological models implemented in the ``rrmpg.models`` mod
 ABC-Model
 ---------
 
+Implementation of the model described in:
+
+.. code-block:: none
+
+    Myron B. Fiering "Streamflow synthesis" Cambridge, Harvard University
+    Press, 1967. 139 P. (1967).
+
 Explanation of the model parameters:
 """"""""""""""""""""""""""""""""""""
 
@@ -25,8 +32,17 @@ Class documentation
    :members:
    :inherited-members:
 
+
 HBV education
 -------------
+
+Implementation of the model described in:
+
+.. code-block:: none
+
+    Aghakouchak, Amir, and Emad Habib. "Application of a conceptual hydrologic
+    model in teaching hydrologic processes." International Journal of
+    Engineering Education 26.4 (S1) (2010).
 
 Explanation of the model parameters:
 """"""""""""""""""""""""""""""""""""
@@ -62,3 +78,36 @@ Class documentation
 .. autoclass:: rrmpg.models.HBVEdu
    :members:
    :inherited-members:
+
+
+GR4J
+-------------
+Implementation of the model described in:
+
+.. code-block:: none
+
+    Perrin, Charles, Claude Michel, and Vazken Andréassian. "Improvement of a
+    parsimonious model for streamflow simulation." Journal of hydrology 279.1
+    (2003): 275-289.
+
+Explanation of the model parameters:
+""""""""""""""""""""""""""""""""""""
+
+* x1: maximum capacity of the production store [mm]
+* x2: groundwater exchange coefficient [mm]
+* x3: one day ahead maximum capacity of the routing store [mm]
+* x4: time base of the unit hydrograph UH1 [days]
+
+Model inputs for simulation:
+""""""""""""""""""""""""""""
+
+* prec: Array of precipitation [mm/day]
+* etp: Array mean potential evapotranspiration [mm]
+
+
+Class documentation
+"""""""""""""""""""
+
+.. autoclass:: rrmpg.models.GR4J
+  :members:
+  :inherited-members:
