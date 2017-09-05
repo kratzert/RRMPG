@@ -9,10 +9,12 @@
 # see <https://opensource.org/licenses/MIT>
 
 import unittest
+import os
 
 import numpy as np
+import pandas as pd
 
-from rrmpg.models import ABCModel, HBVEdu
+from rrmpg.models import ABCModel, HBVEdu, GR4J
 from rrmpg.models.basemodel import BaseModel
 
 class TestBaseModelFunctions(unittest.TestCase):
@@ -114,5 +116,39 @@ class TestHBVEdu(unittest.TestCase):
         expr = ("In the precipitation array are negative values." in
                 str(context.exception)) 
         self.assertTrue(expr)
-     
+    
+class TestGR4J(unittest.TestCase):
+    """Test the GR4J Model.
+    
+    This model is validated against the Excel implementation provided by the 
+    model authors.
+    """
+    
+    def setUp(self):
+        # parameters are taken from the excel sheet
+        params = {'x1': np.exp(5.76865628090826), 
+                  'x2': np.sinh(1.61742503661094), 
+                  'x3': np.exp(4.24316129943456), 
+                  'x4': np.exp(-0.117506799276908)+0.5}
+        self.model = GR4J(params=params)
+        
+    def test_model_subclass_of_basemodel(self):
+        self.assertTrue(issubclass(self.model.__class__, BaseModel))  
+        
+    def test_simulate_zero_rain(self):
+        qsim = self.model.simulate(prec=np.zeros(100),
+                                   etp=np.random.uniform(0,3,100),
+                                   s_init=0, r_init=0)
+        self.assertEqual(np.sum(qsim), 0)
+        
+    def test_simulate_compare_against_excel(self):
+        # intial states are taken from excel
+        s_init = 0.6
+        r_init = 0.7
+        test_dir = os.path.dirname(__file__)
+        data_file = os.path.join(test_dir, 'data', 'gr4j_example_data.csv')
+        data = pd.read_csv(data_file, sep=',')
+        qsim = self.model.simulate(data.prec, data.etp, s_init=s_init, 
+                                   r_init=r_init, return_storage=False)
+        self.assertTrue(np.allclose(qsim, data.qsim_excel))
         

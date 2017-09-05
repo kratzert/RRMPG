@@ -74,7 +74,7 @@ class HBVEdu(BaseModel):
                        ('L', np.float64)])
 
     def __init__(self, area, params=None):
-        """Initialize an HBVEdu model object.
+        """Initialize a HBVEdu model object.
 
         Args:
             area: Area of the basin.
@@ -101,7 +101,8 @@ class HBVEdu(BaseModel):
         meteorological inputs, then calls the optimized model routine. Due
         to restrictions with the use of numba, this routine is kept outside
         of this model class.
-        The meteorological inputs can be either python lists or numpy arrays.
+        The meteorological inputs can be either list, numpy array or pandas 
+        Series.
 
         Args:
             temp: Array of (mean) temperature for each timestep.
@@ -116,6 +117,8 @@ class HBVEdu(BaseModel):
             s1_init: (optional) Initial state of the near surface flow
                 reservoir.
             s2_init: (optional) Initial state of the base flow reservoir.
+            return_storage: (optional) Boolean, indicating if the model 
+                storages should also be returned.
 
         Returns:
             An array with the simulated streamflow and optional one array for
@@ -199,14 +202,14 @@ class HBVEdu(BaseModel):
 
     def fit(self, qobs, temp, prec, month, PE_m, T_m, snow_init=0.,
             soil_init=0., s1_init=0., s2_init=0.):
-        """Fit the model to a timeseries of discharge using.
+        """Fit the HBVEdu model to a timeseries of discharge.
 
         This functions uses scipy's global optimizer (differential evolution)
         to find a good set of parameters for the model, so that the observed 
         discharge is simulated as good as possible.
 
         Args:
-            qobs: Array of observed streaflow discharge.
+            qobs: Array of observed streamflow discharge.
             temp: Array of (mean) temperature for each timestep.
             prec: Array of (summed) precipitation for each timestep.
             month: Array of integers indicating for each timestep to which
@@ -231,9 +234,10 @@ class HBVEdu(BaseModel):
                 month array.
 
         """
-        # Validation check of the temperature, precipitation and input
+        # Validation check of the temperature, precipitation and qobs input
         temp = validate_array_input(temp, np.float64, 'temperature')
         prec = validate_array_input(prec, np.float64, 'precipitation')
+        qobs = validate_array_input(qobs, np.float64, 'observed discharge')
         # Check if there exist negative precipitation
         if check_for_negatives(prec):
             raise ValueError("In the precipitation array are negative values.")
