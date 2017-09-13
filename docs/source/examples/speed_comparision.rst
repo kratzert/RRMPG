@@ -93,7 +93,7 @@ of the model is the same.
             state_in = state_out
         return outflow
 
-.. code:: python
+.. code:: bash
 
     %%fortran
 
@@ -115,7 +115,7 @@ of the model is the same.
             do t = 1,col_dim
                 state_out = (1 - c) * state_in + a * inflow(t)
                 outflow(t) = (1 - a - b) * inflow(t) + c * state_in
-                state_out = state_in
+                state_in = state_out
             end do
 
         end subroutine
@@ -131,7 +131,7 @@ each of the functions
 
 .. parsed-literal::
 
-    7.1 s ± 79.5 ms per loop (mean ± std. dev. of 5 runs, 10 loops each)
+    6.75 s ± 11.6 ms per loop (mean ± std. dev. of 5 runs, 10 loops each)
 
 
 .. code:: python
@@ -142,7 +142,7 @@ each of the functions
 
 .. parsed-literal::
 
-    33.5 ms ± 356 µs per loop (mean ± std. dev. of 5 runs, 10 loops each)
+    30.6 ms ± 498 µs per loop (mean ± std. dev. of 5 runs, 10 loops each)
 
 
 .. code:: python
@@ -153,7 +153,7 @@ each of the functions
 
 .. parsed-literal::
 
-    21.7 ms ± 248 µs per loop (mean ± std. dev. of 5 runs, 10 loops each)
+    31.9 ms ± 757 µs per loop (mean ± std. dev. of 5 runs, 10 loops each)
 
 
 As you can see by the raw numbers, Fortran (as expected) is the fastest,
@@ -169,15 +169,13 @@ function, the rest (the magic) is done by the Numba library.
     py_time.best / numba_time.best
 
 
-
-
 .. parsed-literal::
 
-    210.9744518960955
+    222.1521754580626
 
 
 
-Wow, this is an over 200 x speed up by one single additional line of
+Wow, this is an over 220 x speed up by one single additional line of
 code. Note that for more complicated models, we'll have to adapt the
 code a bit more, but in general it will stay very close to normal Python
 code.
@@ -191,32 +189,32 @@ meteorology.
     numba_time.best / fortran_time.best
 
 
-
-
 .. parsed-literal::
 
-    1.5299613568574595
+    0.9627960721576471
 
 
 
-So as you could have guessed from the raw numbers above, Numba is only
-1.5 x slower than the Fortran implementation. Note that this Fortran
-function is compiled using the GNU Fortran compiler, which is open
-source and free. Using e.g. the Intel Fortran compiler will certainly
-increase the gap between the runtime of the Fortran function and the
-Numba function, but I think it's only fair to compare two open source
-and free-of-charge versions.
+Actually, this even surprised me. With one decorator the Python function
+became faster than the Fortran file, although the difference is minimal,
+but who would have guessed that we can bring Python to this speed
+dimensions.
 
-**what does this mean?**
+Note that this Fortran function is compiled using the GNU Fortran
+compiler, which is open source and free. Using e.g. the Intel Fortran
+compiler will certainly increase speed of the Fortran function, but I
+think it's only fair to compare two open source and free-of-charge
+versions.
+
+**So what does this mean**
 
 We'll see, but you'll now maybe better understand the idea of this
-project. We can implement models in Python, that have nearly the
-performance of Fortran, but are easier to get started with and play
-around. We can run 1000s of simulations and don't have to wait for ages
-and we can stay the entire time in one environment, for simulating and
-evaluating the results. The hope is, that this will help fellow
-students/researchers to better understand hydrological models and loose
-fear of what might seem intimidating at first, follwing a quote by
-Richard Feynman:
+project. We can implement models in Python, that have the performance of
+Fortran, but are easier to get started with and play around. We can run
+1000s of simulations and don't have to wait for ages and we can stay the
+entire time in one environment (for simulating and evaluating the
+results). The hope is, that this will help fellow students/researchers
+to better understand hydrological models and lose fear of what might
+seem intimidating at first, follwing a quote by Richard Feynman:
 
 **"What I can not create, I do not understand" - Richard Feynman**
