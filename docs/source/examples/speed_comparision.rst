@@ -62,7 +62,7 @@ Next we are going to define three different functions:
    raised if numba can't compile the function.
 3. ``abc_model_fortan``: A fortan version of the ABC-model. In previous
    version this was done using the f2py module which added some overhead
-   to the function call and was no fair benchmark (see [pull request #3](https://github.com/kratzert/RRMPG/pull/3)).
+   to the function call and was no fair benchmark (see `pull request #3 <https://github.com/kratzert/RRMPG/pull/3>`_).
    Now the Fortran implementation is wrapped in a Cython function.
 
 Note how for this simple model the only difference between the pure

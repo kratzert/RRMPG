@@ -37,8 +37,9 @@ At the moment I'm looking for a selection of hydrological models I'll implement 
 
 Contributors
 ------------
-I'll add later a better looking section to the official documentation. For now I'll list everybody, who contributed to this repository here:
-- [Ondřej Čertík](https://github.com/certik) with pull request [#3](https://github.com/kratzert/RRMPG/pull/3): Optimized Fortran code and compilation procedure for fair speed comparision.
+I'll add later a better looking section to the official documentation. For now I list everybody, who contributed to this repository here:
+
+- `Ondřej Čertík <https://github.com/certik>`_ with `pull request #3 <https://github.com/kratzert/RRMPG/pull/3>`_: Optimized Fortran code and compilation procedure for fair speed comparision.
 
 Contact
 -------
