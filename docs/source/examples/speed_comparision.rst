@@ -27,11 +27,11 @@ homepage, which includes examples <https://numba.pydata.org/>`__
 If you want to reproduce the results and you have installed a conda
 environment using the environment.yml from the `rrmpg github
 repository <https://github.com/kratzert/RRMPG/blob/master/environment.yml>`__
-make sure to additionally install ``fortran-magic`` using pip:
+make sure to additionally install ``cython``:
 
 ::
 
-    pip install -U fortran-magic
+    conda install -c anaconda cython
 
 [1] Myron B. Fiering "Streamflow synthesis" Cambridge, Harvard
 University Press, 1967. 139 P. (1967).
@@ -43,8 +43,6 @@ University Press, 1967. 139 P. (1967).
 
     from numba import njit, float64
     from timeit import timeit
-
-    %load_ext fortranmagic
 
 We'll use an array of random numbers as input for the model. Since we
 only want to test the execution time, this will work for now.
@@ -62,7 +60,10 @@ Next we are going to define three different functions:
    just-in-time compilation is achieved by adding a numba decorator over
    the function definition. I use the ``@njit`` to make sure an error is
    raised if numba can't compile the function.
-3. ``abc_model_fortan``: A fortan version of the ABC-model.
+3. ``abc_model_fortan``: A fortan version of the ABC-model. In previous
+   version this was done using the f2py module which added some overhead
+   to the function call and was no fair benchmark (see [pull request #3](https://github.com/kratzert/RRMPG/pull/3)).
+   Now the Fortran implementation is wrapped in a Cython function.
 
 Note how for this simple model the only difference between the pure
 Python version and the Numba version is the decorator. The entire code
@@ -93,32 +94,95 @@ of the model is the same.
             state_in = state_out
         return outflow
 
+.. code:: python
+
+    %%file abc.f90
+
+    module abc
+    use iso_c_binding, only: c_int, c_double
+    implicit none
+    integer, parameter :: dp = kind(0d0)
+    private
+    public c_abc_model_fortran
+
+    contains
+
+
+    subroutine c_abc_model_fortran(n, a, b, c, inflow, outflow) bind(c)
+    integer(c_int), intent(in), value :: n
+    real(c_double), intent(in), value :: a, b, c
+    real(c_double), intent(in) :: inflow(n)
+    real(c_double), intent(out) :: outflow(n)
+    call abc_model(a, b, c, inflow, outflow)
+    end subroutine
+
+
+    subroutine abc_model(a, b, c, inflow, outflow)
+    real(dp), intent(in) :: a, b, c, inflow(:)
+    real(dp), intent(out) :: outflow(:)
+    real(dp) :: state_in, state_out
+    integer :: t
+    state_in = 0
+    do t = 1, size(inflow)
+        state_out = (1 - c) * state_in + a * inflow(t)
+        outflow(t) = (1 - a - b) * inflow(t) + c * state_in
+        state_in = state_out
+    end do
+    end subroutine
+
+
+    end module
+
+
+.. parsed-literal::
+
+    Overwriting abc.f90
+
+
+.. code:: python
+
+    %%file abc_py.pyx
+
+    from numpy cimport ndarray
+    from numpy import empty, size
+
+    cdef extern:
+        void c_abc_model_fortran(int n, double a, double b, double c, double *inflow, double *outflow)
+
+    def abc_model_fortran(double a, double b, double c, ndarray[double, mode="c"] inflow):
+        cdef int N = size(inflow)
+        cdef ndarray[double, mode="c"] outflow = empty(N, dtype="double")
+        c_abc_model_fortran(N, a, b, c, &inflow[0], &outflow[0])
+        return outflow
+
+
+.. parsed-literal::
+
+    Overwriting abc_py.pyx
+
+
+Compile the Fortran and Cython module
+
 .. code:: bash
 
-    %%fortran
+    %%bash
+    set -e
+    #set -x
+    # Debug flags
+    #FFLAGS="-Wall -Wextra -Wimplicit-interface -fPIC -fmax-errors=1 -g -fcheck=all -fbacktrace"
+    #CFLAGS="-Wall -Wextra -fPIC -fmax-errors=1 -g"
+    # Release flags
+    FFLAGS="-fPIC -O3 -march=native -ffast-math -funroll-loops"
+    CFLAGS="-fPIC -O3 -march=native -ffast-math -funroll-loops"
+    gfortran -o abc.o -c abc.f90 $FFLAGS
+    cython abc_py.pyx
+    gcc -o abc_py.o -c abc_py.c -I$CONDA_PREFIX/include/python3.6m/ $CFLAGS
+    gcc -o abc_py.so abc_py.o abc.o -L$CONDA_PREFIX/lib -lpython3.6m -lgfortran -shared
 
-        subroutine abc_model_fortran(col_dim, a, b, c, inflow, outflow)
+.. code:: python
 
-            integer, intent(in) :: col_dim
-            real(kind = 8 ), intent(in) :: a, b, c
-            real(kind = 8 ), intent(in), dimension(col_dim) :: inflow
-
-            real(kind = 8) :: state_in, state_out
-            integer :: t ! loop variable
-            real(kind = 8 ) :: init_state
-            real(kind = 8 ), dimension(col_dim) :: state
-
-            real(kind = 8 ), intent(out), dimension(col_dim) :: outflow
-
-            state_in = 0
-            state_out = 0
-            do t = 1,col_dim
-                state_out = (1 - c) * state_in + a * inflow(t)
-                outflow(t) = (1 - a - b) * inflow(t) + c * state_in
-                state_in = state_out
-            end do
-
-        end subroutine
+    # Now we can import it like a normal Python module
+    from abc_py import abc_model_fortran
 
 Now we'll use the ``timeit`` package to measure the execution time of
 each of the functions
@@ -126,34 +190,34 @@ each of the functions
 .. code:: python
 
     # Measure the execution time of the Python implementation
-    py_time = %timeit -r 5 -n 10 -o abc_model_py(0.2, 0.6, 0.1, rain)
+    py_time = %timeit -o abc_model_py(0.2, 0.6, 0.1, rain)
 
 
 .. parsed-literal::
 
-    6.75 s ± 11.6 ms per loop (mean ± std. dev. of 5 runs, 10 loops each)
+    6.94 s ± 258 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
 
 .. code:: python
 
     # Measure the execution time of the Numba implementation
-    numba_time = %timeit -r 5 -n 10 -o abc_model_numba(0.2, 0.6, 0.1, rain)
+    numba_time = %timeit -o abc_model_numba(0.2, 0.6, 0.1, rain)
 
 
 .. parsed-literal::
 
-    30.6 ms ± 498 µs per loop (mean ± std. dev. of 5 runs, 10 loops each)
+    32.6 ms ± 52.7 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
 
 
 .. code:: python
 
-    # Measure the execution time of the Fortran implementation
-    fortran_time = %timeit -r 5 -n 10 -o abc_model_fortran(0.2, 0.6, 0.1, rain)
+    # Measure the execution time of the Fortran 2 implementation
+    fortran_time = %timeit -o abc_model_fortran(0.2, 0.6, 0.1, rain)
 
 
 .. parsed-literal::
 
-    31.9 ms ± 757 µs per loop (mean ± std. dev. of 5 runs, 10 loops each)
+    23.4 ms ± 934 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
 
 
 As you can see by the raw numbers, Fortran (as expected) is the fastest,
@@ -169,13 +233,15 @@ function, the rest (the magic) is done by the Numba library.
     py_time.best / numba_time.best
 
 
+
+
 .. parsed-literal::
 
-    222.1521754580626
+    205.15122150338178
 
 
 
-Wow, this is an over 220 x speed up by one single additional line of
+Wow, this is roughly a 205 x speed up by one single additional line of
 code. Note that for more complicated models, we'll have to adapt the
 code a bit more, but in general it will stay very close to normal Python
 code.
@@ -189,16 +255,17 @@ meteorology.
     numba_time.best / fortran_time.best
 
 
+
+
 .. parsed-literal::
 
-    0.9627960721576471
+    1.451113966128858
 
 
 
-Actually, this even surprised me. With one decorator the Python function
-became faster than the Fortran file, although the difference is minimal,
-but who would have guessed that we can bring Python to this speed
-dimensions.
+So the Fortran implementation is still faster but not much. We only need
+less than 1,5x the time of the Fortran version if we run the Python code
+optimized with the Numba library.
 
 Note that this Fortran function is compiled using the GNU Fortran
 compiler, which is open source and free. Using e.g. the Intel Fortran
@@ -208,13 +275,17 @@ versions.
 
 **So what does this mean**
 
-We'll see, but you'll now maybe better understand the idea of this
-project. We can implement models in Python, that have the performance of
-Fortran, but are easier to get started with and play around. We can run
-1000s of simulations and don't have to wait for ages and we can stay the
-entire time in one environment (for simulating and evaluating the
-results). The hope is, that this will help fellow students/researchers
-to better understand hydrological models and lose fear of what might
-seem intimidating at first, follwing a quote by Richard Feynman:
+We'll see, but you will now have maybe a better idea of this project.
+The thing is, we can implement models in Python, that have roughly the
+performance of Fortran, but are at the same time less complex to
+implement and play around with. We can also save a lot of boilerplate
+code we need with Fortran to compiler our code in the most optimal way.
+We only need to follow some rules of the Numba library and for the rest,
+add one decorator to the function definition. We can run 1000s of
+simulations and don't have to wait for ages and we can stay the entire
+time in one environment (for simulating and evaluating the results). The
+hope is, that this will help fellow students/researchers to better
+understand hydrological models and lose fear of what might seem
+intimidating at first, follwing a quote by Richard Feynman:
 
 **"What I can not create, I do not understand" - Richard Feynman**
