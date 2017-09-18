@@ -35,6 +35,11 @@ You want to contribute?
 
 At the moment I'm looking for a selection of hydrological models I'll implement in Python. If you want to see any (your?) model in this project, feel free to contact me.
 
+Contributors
+------------
+I'll add later a better looking section to the official documentation. For now I'll list everybody, who contributed to this repository here:
+- [Ondřej Čertík](https://github.com/certik) with pull request [#3](https://github.com/kratzert/RRMPG/pull/3): Optimized Fortran code and compilation procedure for fair speed comparision.
+
 Contact
 -------
 
