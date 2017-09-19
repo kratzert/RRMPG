@@ -211,7 +211,7 @@ each of the functions
 
 .. code:: python
 
-    # Measure the execution time of the Fortran 2 implementation
+    # Measure the execution time of the Fortran implementation
     fortran_time = %timeit -o abc_model_fortran(0.2, 0.6, 0.1, rain)
 
 
