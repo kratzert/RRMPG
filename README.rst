@@ -6,7 +6,7 @@ This repository is a work in progress repository.
 
 Official documentation can be found here: `http://rrmpg.readthedocs.io <http://rrmpg.readthedocs.io>`_
 
-Read the :ref:`Idea secion <idea>` for further information about the background and aim of this project.
+Read the :ref:`Idea section <idea>` for further information about the background and aim of this project.
 
 Road map (pull requests welcome!)
 ---------------------------------
