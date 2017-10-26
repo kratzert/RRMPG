@@ -66,7 +66,7 @@ class BaseModel(object):
         self.set_params(params)
 
     def get_random_params(self, num=1):
-        """Generate a random set of model parameters in the default bounds.
+        """Generate random sets of model parameters in the default bounds.
 
         Samples num values for each model parameter from a uniform distribution
         between the default bounds.

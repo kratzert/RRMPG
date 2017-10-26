@@ -68,7 +68,7 @@ class ABCModel(BaseModel):
         super().__init__(params=params)
         
     def get_random_params(self, num=1):
-        """Generate a random sets of model parameters for the ABC-model
+        """Generate random sets of model parameters for the ABC-model.
 
         The ABC-model has specific parameter constraints, therefore we will 
         overwrite the function of the BaseModel, to generated random model
