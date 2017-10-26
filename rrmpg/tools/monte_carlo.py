@@ -12,7 +12,7 @@
 import numpy as np
 
 from ..models.basemodel import BaseModel
-from ..utils.metrics import nse, mse
+from ..utils.metrics import mse
 from ..utils.array_checks import validate_array_input
 
 
@@ -57,25 +57,21 @@ def monte_carlo(model, num, qobs=None, **kwargs):
         # Validation check of qobs
         qobs = validate_array_input(qobs, np.float64, 'qobs')
     
-    # Initialize arrays for the params, simulations and model efficiency
-    params = np.zeros(num, dtype=model.get_dtype())
+    # Generate sets of random parameters
+    params = model.get_random_params(num=num)
+    
+    # Initialize arrays simulations and model efficiency
     qsim = np.zeros((len(kwargs['prec']), num), dtype=np.float64)
     nse_values = np.zeros(num, dtype=np.float64)
 
     # Perform monte-carlo-simulations
     for n in range(num):
-        # generate random parameters
-        p = model.get_random_params()
-
-        # store parameters to params array
-        for key, value in p.items():
-            params[key][n] = value
 
         # set random params as model parameter
-        model.set_params(p)
+        model.set_params(params[n])
 
         # calculate simulation
-        qsim[:, n] = model.simulate(**kwargs)
+        qsim[:, n] = model.simulate(**kwargs).flatten()
         
         if qobs is not None: 
             # calculate model efficiency

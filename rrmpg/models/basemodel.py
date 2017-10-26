@@ -65,25 +65,28 @@ class BaseModel(object):
         # Parse model parameters as class attributes
         self.set_params(params)
 
-    def get_random_params(self):
+    def get_random_params(self, num=1):
         """Generate a random set of model parameters in the default bounds.
 
-        Samples one value for each model parameter from a uniform distribution
-        betwen the default bounds.
-
+        Samples num values for each model parameter from a uniform distribution
+        between the default bounds.
+        
+        Args:
+            num: (optional) Integer, specifying the number of parameter sets,
+                that will be generated. Default is 1.
+        
         Returns:
-            A dict containing one key/value pair for each model parameter.
-            Example:
-            {'param1': 0.3, 'param2': 0.2, 'param3': 0.7}
+            A numpy array of the models custom data type, containing the at
+            random generated parameters.
 
         """
-        params = {}
+        params = np.zeros(num, dtype=self._dtype)
         # sample one value for each parameter
         for param in self._param_list:
-            value = uniform(low=self._default_bounds[param][0],
-                            high=self._default_bounds[param][1],
-                            size=1)
-            params[param] = value[0]
+            values = uniform(low=self._default_bounds[param][0],
+                             high=self._default_bounds[param][1],
+                             size=num)
+            params[param] = values
 
         return params
 
@@ -98,33 +101,66 @@ class BaseModel(object):
         """Set model parameters to values passed in params.
 
         Args:
-            params: Dictonary containing model parameters as key/value pairs.
-                Can be only one model parameter or many/all. The naming of the
-                parameters must be identical to the names specified in the
-                _param_list. All parameter values must be numerical.
+            params: Either a dictonary containing model parameters as 
+                key/value pairs or a numpy array of the models own custom
+                dtype. For the case of dictionaries, they can contain only one 
+                model parameter or many/all. The naming of the parameters must 
+                be identical to the names specified in the _param_list. 
+                All parameter values must be numerical.
 
         Raises:
             ValueError: If any parameter is not a numerical value.
             AttributeError: If the parameter dictonary contains a key, that 
                 doesn't match any of the parameter names.
+            TypeError: If the numpy array of the parameter does not fit the
+                custom data type of the model or it's neither a dict nor a 
+                numpy ndarray.
 
         """
-        for param, value in params.items():
-            # Check if parameter is defined in the model parameter list
-            if param in self._param_list:
-                # Check if value is numerical
-                if isinstance(value, numbers.Number):
-                    setattr(self, param, value)
+        if isinstance(params, dict):         
+            for param, value in params.items():
+                # Check if parameter is defined in the model parameter list
+                if param in self._param_list:
+                    # Check if value is numerical
+                    if isinstance(value, numbers.Number):
+                        setattr(self, param, value)
+                    else:
+                        msg = ["The value of parameter '{}'".format(param),
+                               "must be numerical"]
+                        raise ValueError("".join(msg))
                 else:
-                    msg = ["The value of parameter '{}'".format(param),
-                           "must be numerical"]
-                    raise ValueError("".join(msg))
+                    msg = ["Unknow parameter '{}'.".format(param),
+                           "Name must match one of the model parameters."
+                           "Use {}".format(self.__class__.__name__),
+                           ".get_parameter_names() to get a list of valid names."]
+                    raise AttributeError("".join(msg))
+        
+        elif isinstance(params, np.void):
+            # Check if the array type is the model custom dtype
+            if params.dtype == self._dtype:
+                # Unpack the parameters and store them in the model
+                for param in self._param_list:
+                    setattr(self, param, params[param])
             else:
-                msg = ["Unknow parameter '{}'.".format(param),
-                       "Name must match one of the model parameters."
-                       "Use {}".format(self.__class__.__name__),
-                       ".get_parameter_names() to get a list of valid names."]
-                raise AttributeError("".join(msg))
+                msg = ["The parameter array has the wrong data type. ",
+                       "It must be the custom data type of the model."]
+                raise TypeError("".join(msg))
+            
+        elif isinstance(params, np.ndarray):
+            # Check if the array type is the model custom dtype
+            if params.dtype == self._dtype:
+                # Unpack the parameters and store them in the model
+                for param in self._param_list:
+                    setattr(self, param, params[param][0])
+            else:
+                msg = ["The parameter array has the wrong data type. ",
+                       "It must be the custom data type of the model."]
+                raise TypeError("".join(msg))    
+        else:
+            # Wrong input type
+            msg = ["Wrong input data type. Must be either a dict or a ",
+                   "numpy.ndarray"]
+            raise TypeError("".join(msg))
 
     def get_parameter_names(self):
         """Return the list of parameter names."""

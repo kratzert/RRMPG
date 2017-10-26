@@ -20,7 +20,7 @@ from rrmpg.models.basemodel import BaseModel
 class TestBaseModelFunctions(unittest.TestCase):
     """Test all functions implemented in the BaseModel.
     
-    These will not be test for all models, but one as an example for one of 
+    These will not be tested for all models, but one as an example for one of 
     the models.
     """
     
@@ -55,16 +55,26 @@ class TestBaseModelFunctions(unittest.TestCase):
         params = self.model.get_random_params()
         bnds = self.default_bounds
         
-        for p, val in params.items():
+        for p in self.param_names:
             msg = ["Failed for param: '{}', which has a ".format(p),
-                   "a value of {}, but lower bounds ".format(val),
+                   "a value of {}, but lower bounds ".format(params[p][0]),
                    "is {} and upper bound {}.".format(bnds[p][0], bnds[p][1])]
-            self.assertTrue(bnds[p][0] <= val <= bnds[p][1], "".join(msg))
-            
+            self.assertTrue(bnds[p][0] <= params[p][0] <= bnds[p][1], 
+                            "".join(msg))
+    
+    def test_get_multiple_random_param_sets(self):
+        num = 24
+        params = self.model.get_random_params(num=num)
+        self.assertEqual(num, params.size)
+              
     def test_set_params(self):
         rand_params = self.model.get_random_params()
-        self.model.set_params(rand_params)
-        self.assertDictEqual(rand_params, self.model.get_params()) 
+        # convert rand_params array to dict:
+        params = {}
+        for p in self.param_names:
+            params[p] = rand_params[p][0]
+        self.model.set_params(params)
+        self.assertDictEqual(params, self.model.get_params()) 
         
         
 class TestABCModel(unittest.TestCase):

@@ -67,33 +67,38 @@ class ABCModel(BaseModel):
         """
         super().__init__(params=params)
         
-    def get_random_params(self):
-        """Generate a random set of model parameters for the ABC-model
+    def get_random_params(self, num=1):
+        """Generate a random sets of model parameters for the ABC-model
 
         The ABC-model has specific parameter constraints, therefore we will 
         overwrite the function of the BaseModel, to generated random model
         parameters, that satisfy the ABC-Model constraints.
 
+        Args:
+            num: (optional) Integer, specifying the number of parameter sets,
+                that will be generated. Default is 1.
+                
         Returns:
             A dict containing one key/value pair for each model parameter.
 
         """
-        params = {}
+        params = np.zeros(num, dtype=self._dtype)
         
         # sample parameter 'a' between the bounds [0,1]
-        params['a'] = np.random.uniform(low=self._default_bounds['a'][0],
-                                        high=self._default_bounds['a'][1],
-                                        size=1)[0]
+        params['a'][:] = np.random.uniform(low=self._default_bounds['a'][0],
+                                           high=self._default_bounds['a'][1],
+                                           size=num)
+                # parameter 'c' must be between [0,1] and has no further constraints
+        params['c'][:] = np.random.uniform(low=self._default_bounds['c'][0],
+                                           high=self._default_bounds['c'][1],
+                                           size=num)
         
-        # sample parameter 'b' between lower bound 0 and upper bound (1 - a)
-        params['b'] = np.random.uniform(low=self._default_bounds['b'][0],
-                                        high=(1-params['a']),
-                                        size=1)[0]
-        
-        # parameter 'c' must be between [0,1] and has no further constraints
-        params['c'] = np.random.uniform(low=self._default_bounds['c'][0],
-                                        high=self._default_bounds['c'][1],
-                                        size=1)[0]
+        # Parameter b is constraint by its corresponding a parameter.
+        for i in range(num):
+            # sample parameter 'b' between lower bound 0 and upper bnd (1 - a)
+            params['b'][i] = np.random.uniform(low=self._default_bounds['b'][0],
+                                               high=(1-params['a'][i]),
+                                               size=1)
         
         return params
 
@@ -138,8 +143,8 @@ class ABCModel(BaseModel):
         # Validation check of the return_storage
         if not isinstance(return_storage, bool):
             raise TypeError("The return_storage arg must be a boolean.")
-
-        # Create custom numpy data structure containing the model parameters
+        
+        # Create custom numpy data struct containing the model parameters
         params = np.zeros(1, dtype=self._dtype)
         for param in self._param_list:
             params[param] = getattr(self, param)
