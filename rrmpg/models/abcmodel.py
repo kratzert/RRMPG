@@ -14,7 +14,7 @@ import numbers
 
 import numpy as np
 
-from numba import njit
+from numba import njit, prange
 from scipy import optimize
 
 from .basemodel import BaseModel
@@ -102,7 +102,8 @@ class ABCModel(BaseModel):
         
         return params
 
-    def simulate(self, prec, initial_state=0, return_storage=False):
+    def simulate(self, prec, initial_state=0, return_storage=False, 
+                 params=None):
         """Simulate the streamflow for the passed precipitation.
 
         This function makes sanity checks on the input and then calls the
@@ -114,6 +115,10 @@ class ABCModel(BaseModel):
             initial_state: (optional) Initial value for the storage.
             return_storage: (optional) Boolean, wether or not to return the
                 simulated storage for each timestep.
+            params: (optional) Numpy array of parameter sets, that will be 
+                evaluated a once in parallel. Must be of the models own custom
+                data type. If nothing is passed, the parameters, stored in the 
+                model object, will be used.
 
         Returns:
             An array with the simulated stream flow for each timestep and
@@ -144,10 +149,21 @@ class ABCModel(BaseModel):
         if not isinstance(return_storage, bool):
             raise TypeError("The return_storage arg must be a boolean.")
         
-        # Create custom numpy data struct containing the model parameters
-        params = np.zeros(1, dtype=self._dtype)
-        for param in self._param_list:
-            params[param] = getattr(self, param)
+        # If no parameters were passed, prepare array w. params from attributes
+        if params is None:
+            params = np.zeros(1, dtype=self._dtype)
+            for param in self._param_list:
+                params[param] = getattr(self, param)
+        
+        # Else, check the param input for correct datatype
+        else:
+            if params.dtype != self._dtype:
+                msg = ["The model parameters must be a numpy array of the ",
+                       "models own custom data type."]
+                raise TypeError("".join(msg))
+            # if only one parameter set is passed, expand dimensions to 1D
+            if isinstance(params, np.void):
+                params = np.expand_dims(params, params.ndim)
 
         # Call ABC-model simulation function and return results
         if return_storage:
@@ -228,30 +244,40 @@ def _loss(X, *args):
     return loss_value
 
 
-@njit
+@njit(parallel=True)
 def _simulate_abc(params, prec, initial_state):
-    """Run a simulation of the ABC-model for given input and params."""
-    # Unpack model parameters
-    a = params['a'][0]
-    b = params['b'][0]
-    c = params['c'][0]
-
+    """Run a simulation of the ABC-model for given input and param sets."""
     # Number of simulation timesteps
     num_timesteps = len(prec)
+    
+    # Initialize arrays for all simulations of all parameter sets.
+    qsim_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    storage_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    
+    # Process different param sets in parallel through 'prange'-loop
+    for i in prange(params.size):
+        # Unpack model parameters
+        a = params['a'][i]
+        b = params['b'][i]
+        c = params['c'][i]
+    
+        # Initialize array for the simulated stream flow and the storage
+        qsim = np.zeros(num_timesteps, np.float64)
+        storage = np.zeros(num_timesteps, np.float64)
+    
+        # Set the initial storage value
+        storage[0] = initial_state
+    
+        # Model simulation
+        for t in range(1, num_timesteps):
+            # Calculate the streamflow
+            qsim[t] = (1 - a - b) * prec[t] + c * storage[t-1]
+    
+            # Update the storage
+            storage[t] = (1 - c) * storage[t-1] + a * prec[t]
 
-    # Initialize array for the simulated stream flow and the storage
-    qsim = np.zeros(num_timesteps, np.float64)
-    storage = np.zeros(num_timesteps, np.float64)
-
-    # Set the initial storage value
-    storage[0] = initial_state
-
-    # Model simulation
-    for t in range(1, num_timesteps):
-        # Calculate the streamflow
-        qsim[t] = (1 - a - b) * prec[t] + c * storage[t-1]
-
-        # Update the storage
-        storage[t] = (1 - c) * storage[t-1] + a * prec[t]
-
-    return qsim, storage
+        # copy results into arrays of all qsims and storages
+        qsim_all[:, i] = qsim
+        storage_all[:, i] = storage
+        
+    return qsim_all, storage_all

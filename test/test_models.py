@@ -160,5 +160,5 @@ class TestGR4J(unittest.TestCase):
         data = pd.read_csv(data_file, sep=',')
         qsim = self.model.simulate(data.prec, data.etp, s_init=s_init, 
                                    r_init=r_init, return_storage=False)
-        self.assertTrue(np.allclose(qsim, data.qsim_excel))
+        self.assertTrue(np.allclose(qsim.flatten(), data.qsim_excel))
         

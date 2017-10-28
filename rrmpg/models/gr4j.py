@@ -11,7 +11,7 @@
 
 import numpy as np
 
-from numba import njit
+from numba import njit, prange
 from scipy import optimize
 
 from .basemodel import BaseModel
@@ -71,7 +71,8 @@ class GR4J(BaseModel):
         """
         super().__init__(params=params)
         
-    def simulate(self, prec, etp, s_init=0., r_init=0., return_storage=False):
+    def simulate(self, prec, etp, s_init=0., r_init=0., return_storage=False,
+                 params=None):
         """Simulate rainfall-runoff process for given input.
         
         This function bundles the model parameters and validates the 
@@ -90,6 +91,10 @@ class GR4J(BaseModel):
                 of x3.
             return_stprage: (optional) Boolean, indicating if the model 
                 storages should also be returned.
+            params: (optional) Numpy array of parameter sets, that will be 
+                evaluated a once in parallel. Must be of the models own custom
+                data type. If nothing is passed, the parameters, stored in the 
+                model object, will be used.            
                 
         Returns:
             An array with the simulated streamflow and optional one array for 
@@ -132,19 +137,30 @@ class GR4J(BaseModel):
                    " range [0,1]."]
             raise ValueError("".join(msg))
         
-        # bundle model parameters in custom numpy array
-        model_params = np.zeros(1, dtype=self._dtype)
-        for param in self._param_list:
-            model_params[param] = getattr(self, param)
+        # If no parameters were passed, prepare array w. params from attributes
+        if params is None:
+            params = np.zeros(1, dtype=self._dtype)
+            for param in self._param_list:
+                params[param] = getattr(self, param)
+        
+        # Else, check the param input for correct datatype
+        else:
+            if params.dtype != self._dtype:
+                msg = ["The model parameters must be a numpy array of the ",
+                       "models own custom data type."]
+                raise TypeError("".join(msg))
+            # if only one parameter set is passed, expand dimensions to 1D
+            if isinstance(params, np.void):
+                params = np.expand_dims(params, params.ndim)
             
         if return_storage:
             qsim, s_store, r_store = _simulate_gr4j(prec, etp, s_init, 
-                                                    r_init, model_params)
+                                                    r_init, params)
             return qsim, s_store, r_store
         
         else:
             qsim, _, _ = _simulate_gr4j(prec, etp, s_init, r_init, 
-                                        model_params)
+                                        params)
             return qsim
         
     def fit(self, qobs, prec, etp, s_init=0., r_init=0.):
@@ -275,123 +291,137 @@ def _s_curve2(t, x4):
     else:
         return 1.
 
-@njit        
-def _simulate_gr4j(prec, etp, s_init, r_init, model_params):
+
+@njit(parallel=True)  
+def _simulate_gr4j(prec, etp, s_init, r_init, params):
     """Actual run function of the gr4j hydrological model."""
-    # Unpack the model parameters
-    x1 = model_params['x1'][0]
-    x2 = model_params['x2'][0]
-    x3 = model_params['x3'][0]
-    x4 = model_params['x4'][0]
-    
-    # get the number of simulation timesteps
+    # Number of simulation timesteps
     num_timesteps = len(prec)
     
-    # initialize empty arrays with one additional timestep, since the 0th will
-    # be used as intial state and the first simulated is the array entry 1
-    s_store = np.zeros(num_timesteps + 1, np.float64)
-    r_store = np.zeros(num_timesteps + 1, np.float64)
-    qsim = np.zeros(num_timesteps + 1, np.float64)
+    # Initialize arrays for all simulations of all parameter sets.
+    qsim_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    s_store_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    r_store_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
     
-    # for clean array indexing, add 0 element at the 0th index of prec and etp
-    # so we start simulating at the index 1
-    prec = np.concatenate((np.zeros(1), prec))
-    etp = np.concatenate((np.zeros(1), etp))
+    # Process different param sets in parallel through 'prange'-loop
+    for i in prange(params.size):
     
-    # set initial values
-    s_store[0] = s_init * x1
-    r_store[0] = r_init * x3
-    
-    # calculate number of unit hydrograph ordinates
-    num_uh1 = int(np.ceil(x4))
-    num_uh2 = int(np.ceil(2*x4 + 1))
-    
-    # calculate the ordinates of both unit-hydrographs (eq. 16 & 17)
-    uh1_ordinates = np.zeros(num_uh1, np.float64)
-    uh2_ordinates = np.zeros(num_uh2, np.float64)
-    
-    for j in range(1, num_uh1 + 1):
-        uh1_ordinates[j - 1] = _s_curve1(j, x4) - _s_curve1(j - 1, x4)
+        # Unpack the model parameters
+        x1 = params['x1'][i]
+        x2 = params['x2'][i]
+        x3 = params['x3'][i]
+        x4 = params['x4'][i]
         
-    for j in range(1, num_uh2 + 1):
-        uh2_ordinates[j - 1] = _s_curve2(j, x4) - _s_curve2(j - 1, x4)
-    
-    # empty arrays to store the rain distributed through the unit hydrographs
-    uh1 = np.zeros(num_uh1, np.float64)
-    uh2 = np.zeros(num_uh2, np.float64)
-    
-    # Start the model simulation loop
-    for t in range(1, num_timesteps+1):
+        # get the number of simulation timesteps
+        num_timesteps = len(prec)
         
-        # Calculate netto precipitation and evaporation
-        if prec[t] >= etp[t]:
-            p_n = prec[t] - etp[t]
-            pe_n = 0
+        # initialize empty arrays w. 1 additional timestep, since the 0th will
+        # be used as intial state and the first simulated is the array entry 1
+        s_store = np.zeros(num_timesteps + 1, np.float64)
+        r_store = np.zeros(num_timesteps + 1, np.float64)
+        qsim = np.zeros(num_timesteps + 1, np.float64)
         
-            # calculate fraction of netto precipitation that fills production 
-            # store (eq. 3)
-            p_s = ((x1 * (1 - (s_store[t-1] / x1)**2) * np.tanh(p_n/x1)) /
-                   (1 + s_store[t-1] / x1 * np.tanh(p_n / x1)))
+        # for clean array indexing, add 0 element at the 0th index of prec and 
+        # etp so we start simulating at the index 1
+        prec = np.concatenate((np.zeros(1), prec))
+        etp = np.concatenate((np.zeros(1), etp))
+        
+        # set initial values
+        s_store[0] = s_init * x1
+        r_store[0] = r_init * x3
+        
+        # calculate number of unit hydrograph ordinates
+        num_uh1 = int(np.ceil(x4))
+        num_uh2 = int(np.ceil(2*x4 + 1))
+        
+        # calculate the ordinates of both unit-hydrographs (eq. 16 & 17)
+        uh1_ordinates = np.zeros(num_uh1, np.float64)
+        uh2_ordinates = np.zeros(num_uh2, np.float64)
+        
+        for j in range(1, num_uh1 + 1):
+            uh1_ordinates[j - 1] = _s_curve1(j, x4) - _s_curve1(j - 1, x4)
             
-            # no evaporation from production store
-            e_s = 0   
+        for j in range(1, num_uh2 + 1):
+            uh2_ordinates[j - 1] = _s_curve2(j, x4) - _s_curve2(j - 1, x4)
         
-        else:
-            p_n = 0
-            pe_n = etp[t] - prec[t]
+        # arrys to store the rain distributed through the unit hydrographs
+        uh1 = np.zeros(num_uh1, np.float64)
+        uh2 = np.zeros(num_uh2, np.float64)
+        
+        # Start the model simulation loop
+        for t in range(1, num_timesteps+1):
             
-            # calculate the fraction of the evaporation that will evaporate 
-            # from the production store (eq. 4)
-            e_s = ((s_store[t-1] * (2 - s_store[t-1]/x1) * np.tanh(pe_n/x1)) /
-                   (1 + (1 - s_store[t-1] / x1) * np.tanh(pe_n / x1)))
+            # Calculate netto precipitation and evaporation
+            if prec[t] >= etp[t]:
+                p_n = prec[t] - etp[t]
+                pe_n = 0
             
-            # no rain that is allocation to the production store
-            p_s = 0
+                # calculate fraction of netto precipitation that fills
+                #  production store (eq. 3)
+                p_s = ((x1 * (1 - (s_store[t-1] / x1)**2) * np.tanh(p_n/x1)) /
+                       (1 + s_store[t-1] / x1 * np.tanh(p_n / x1)))
+                
+                # no evaporation from production store
+                e_s = 0   
             
-        # Calculate the new storage content
-        s_store[t] = s_store[t-1] - e_s + p_s
-        
-        # calculate percolation from actual storage level
-        perc = s_store[t] * (1 - (1 + (4 / 9 * s_store[t] / x1)**4)**(-0.25))
-        
-        # final update of the production store for this timestep
-        s_store[t] = s_store[t] - perc
-        
-        # total quantity of water that reaches the routing
-        p_r = perc + (p_n - p_s)
-        
-        # split this water quantity by .9/.1 for different routing (UH1 & UH2)
-        p_r_uh1 = 0.9 * p_r 
-        p_r_uh2 = 0.1 * p_r
-        
-        # update the state of the rain distributed through the unit hydrographs
-        for j in range(0, num_uh1 - 1):
-            uh1[j] = uh1[j + 1] + uh1_ordinates[j] * p_r_uh1
-        uh1[-1] = uh1_ordinates[-1] * p_r_uh1
-        
-        for j in range(0, num_uh2 - 1):
-            uh2[j] = uh2[j + 1] + uh2_ordinates[j] * p_r_uh2
-        uh2[-1] = uh2_ordinates[-1] * p_r_uh2
-        
-        # calculate the groundwater exchange F (eq. 18)
-        gw_exchange = x2 * (r_store[t - 1] / x3) ** 3.5
-        
-        # update routing store
-        r_store[t] = max(0, r_store[t - 1] + uh1[0] + gw_exchange)
-        
-        # outflow of routing store
-        q_r = r_store[t] * (1 - (1 + (r_store[t] / x3)**4)**(-0.25))
-        
-        # subtract outflow from routing store level
-        r_store[t] = r_store[t] - q_r
-        
-        # calculate flow component of unit hydrograph 2
-        q_d = max(0, uh2[0] + gw_exchange)
-        
-        # total discharge of this timestep
-        qsim[t] = q_r + q_d
-     
-    # only return the simulated timesteps, not the intial state 0    
-    return qsim[1:], s_store[1:], r_store[1:]
+            else:
+                p_n = 0
+                pe_n = etp[t] - prec[t]
+                
+                # calculate the fraction of the evaporation that will evaporate 
+                # from the production store (eq. 4)
+                e_s = ((s_store[t-1] * (2 - s_store[t-1]/x1) * np.tanh(pe_n/x1)) 
+                       / (1 + (1 - s_store[t-1] / x1) * np.tanh(pe_n / x1)))
+                
+                # no rain that is allocation to the production store
+                p_s = 0
+                
+            # Calculate the new storage content
+            s_store[t] = s_store[t-1] - e_s + p_s
             
+            # calculate percolation from actual storage level
+            perc = s_store[t] * (1 - (1 + (4/9 * s_store[t] / x1)**4)**(-0.25))
+            
+            # final update of the production store for this timestep
+            s_store[t] = s_store[t] - perc
+            
+            # total quantity of water that reaches the routing
+            p_r = perc + (p_n - p_s)
+            
+            # split this water quantity by .9/.1 for diff. routing (UH1 & UH2)
+            p_r_uh1 = 0.9 * p_r 
+            p_r_uh2 = 0.1 * p_r
+            
+            # update state of rain, distributed through the unit hydrographs
+            for j in range(0, num_uh1 - 1):
+                uh1[j] = uh1[j + 1] + uh1_ordinates[j] * p_r_uh1
+            uh1[-1] = uh1_ordinates[-1] * p_r_uh1
+            
+            for j in range(0, num_uh2 - 1):
+                uh2[j] = uh2[j + 1] + uh2_ordinates[j] * p_r_uh2
+            uh2[-1] = uh2_ordinates[-1] * p_r_uh2
+            
+            # calculate the groundwater exchange F (eq. 18)
+            gw_exchange = x2 * (r_store[t - 1] / x3) ** 3.5
+            
+            # update routing store
+            r_store[t] = max(0, r_store[t - 1] + uh1[0] + gw_exchange)
+            
+            # outflow of routing store
+            q_r = r_store[t] * (1 - (1 + (r_store[t] / x3)**4)**(-0.25))
+            
+            # subtract outflow from routing store level
+            r_store[t] = r_store[t] - q_r
+            
+            # calculate flow component of unit hydrograph 2
+            q_d = max(0, uh2[0] + gw_exchange)
+            
+            # total discharge of this timestep
+            qsim[t] = q_r + q_d
         
+        # copy simulated timesteps, not the intial state 0 
+        qsim_all[:, i] = qsim[1:]
+        s_store_all[:, i] = s_store[1:]
+        r_store_all[:, i] = r_store[1:]
+          
+    return qsim_all, s_store_all, r_store_all 

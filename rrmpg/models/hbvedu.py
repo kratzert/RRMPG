@@ -14,8 +14,9 @@ import numbers
 
 import numpy as np
 
-from numba import njit
+from numba import njit, prange
 from scipy import optimize
+
 from .basemodel import BaseModel
 from ..utils.metrics import mse
 from ..utils.array_checks import check_for_negatives, validate_array_input
@@ -94,7 +95,7 @@ class HBVEdu(BaseModel):
             raise ValueError("Area must be a positiv numercial value.")
 
     def simulate(self, temp, prec, month, PE_m, T_m, snow_init=0, soil_init=0,
-                 s1_init=0, s2_init=0, return_storage=False):
+                 s1_init=0, s2_init=0, return_storage=False, params=None):
         """Simulate rainfall-runoff process for given input.
 
         This function bundles the model parameters and validates the
@@ -119,6 +120,10 @@ class HBVEdu(BaseModel):
             s2_init: (optional) Initial state of the base flow reservoir.
             return_storage: (optional) Boolean, indicating if the model 
                 storages should also be returned.
+            params: (optional) Numpy array of parameter sets, that will be 
+                evaluated a once in parallel. Must be of the models own custom
+                data type. If nothing is passed, the parameters, stored in the 
+                model object, will be used.
 
         Returns:
             An array with the simulated streamflow and optional one array for
@@ -168,17 +173,28 @@ class HBVEdu(BaseModel):
         s1_init = float(s1_init)
         s2_init = float(s2_init)
 
-        # bundle model parameters in custom numpy array
-        model_params = np.zeros(1, dtype=self._dtype)
-        for param in self._param_list:
-            model_params[param] = getattr(self, param)
+        # If no parameters were passed, prepare array w. params from attributes
+        if params is None:
+            params = np.zeros(1, dtype=self._dtype)
+            for param in self._param_list:
+                params[param] = getattr(self, param)
+        
+        # Else, check the param input for correct datatype
+        else:
+            if params.dtype != self._dtype:
+                msg = ["The model parameters must be a numpy array of the ",
+                       "models own custom data type."]
+                raise TypeError("".join(msg))
+            # if only one parameter set is passed, expand dimensions to 1D
+            if isinstance(params, np.void):
+                params = np.expand_dims(params, params.ndim)
             
         if return_storage:
             # call the actual simulation function
             qsim, snow, soil, s1, s2 = _simulate_hbv_edu(temp, prec, month, 
                                                          PE_m, T_m, snow_init,
                                                          soil_init, s1_init, 
-                                                         s2_init, model_params)
+                                                         s2_init, params)
 
             # TODO: conversion from qobs in m³/s for different time resolutions
             # At the moment expects daily input data
@@ -190,7 +206,7 @@ class HBVEdu(BaseModel):
             # call the actual simulation function
             qsim, _, _, _, _ = _simulate_hbv_edu(temp, prec, month, PE_m, T_m, 
                                                  snow_init, soil_init, s1_init, 
-                                                 s2_init, model_params)
+                                                 s2_init, params)
 
             # TODO: conversion from qobs in m³/s for different time resolutions
             # At the moment expects daily input data
@@ -325,83 +341,99 @@ def _loss(X, *args):
     return loss_value
 
 
-@njit
+@njit(parallel=True)
 def _simulate_hbv_edu(temp, prec, month, PE_m, T_m, snow_init, soil_init,
-                      s1_init, s2_init, model_params):
+                      s1_init, s2_init, params):
     """Run the educational HBV model for given inputs and model parameters."""
-    # Unpack the model parameters
-    T_t = model_params['T_t'][0]
-    DD = model_params['DD'][0]
-    FC = model_params['FC'][0]
-    Beta = model_params['Beta'][0]
-    C = model_params['C'][0]
-    PWP = model_params['PWP'][0]
-    K_0 = model_params['K_0'][0]
-    K_1 = model_params['K_1'][0]
-    K_2 = model_params['K_2'][0]
-    K_p = model_params['K_p'][0]
-    L = model_params['L'][0]
-
-    # get number of simulation timesteps
-    num_timesteps = len(temp)
-
-    # initialize empty arrays for all reservoirs and outflow
-    snow = np.zeros(num_timesteps, np.float64)
-    soil = np.zeros(num_timesteps, np.float64)
-    s1 = np.zeros(num_timesteps, np.float64)
-    s2 = np.zeros(num_timesteps, np.float64)
-    qsim = np.zeros(num_timesteps, np.float64)
-
-    # set initial values
-    snow[0] = snow_init
-    soil[0] = soil_init
-    s1[0] = s1_init
-    s2[0] = s2_init
-
-    # Start the model simulation as loop over all timesteps
-    for t in range(1, num_timesteps):
-
-        # Check if temperature is below threshold
-        if temp[t] < T_t:
-            # accumulate snow
-            snow[t] = snow[t-1] + prec[t]
-            # no liquid water
-            liquid_water = 0
-        else:
-            # melt snow
-            snow[t] = max(0, snow[t-1] - DD * (temp[t] - T_t))
-            # add melted snow to available liquid water
-            liquid_water = prec[t] + min(snow[t-1], DD * (temp[t] - T_t))
-
-        # calculate the effective precipitation
-        prec_eff = liquid_water * (soil[t-1] / FC) ** Beta
-
-        # Calculate the potential evapotranspiration
-        pe = (1 + C * (temp[t] - T_m[month[t]])) * PE_m[month[t]]
-
-        # Calculate the actual evapotranspiration
-        if soil[t-1] > PWP:
-            ea = pe
-        else:
-            ea = pe * (soil[t-1] / PWP)
-
-        # calculate the actual level of the soil reservoir
-        soil[t] = soil[t-1] + liquid_water - prec_eff - ea
-
-        # calculate the actual level of the near surface flow reservoir
-        s1[t] = (s1[t-1]
-                 + prec_eff
-                 - max(0, s1[t-1] - L) * K_0
-                 - s1[t-1] * K_1
-                 - s1[t-1] * K_p)
-
-        # calculate the actual level of the base flow reservoir
-        s2[t] = (s2[t-1]
-                 + s1[t-1] * K_p
-                 - s2[t-1] * K_2)
-
-        qsim[t] = ((max(0, s1[t-1] - L)) * K_0
-                   + s1[t] * K_1
-                   + s2[t] * K_2)
+    # Number of simulation timesteps
+    num_timesteps = len(prec)
     
-    return qsim, snow, soil, s1, s2
+    # Initialize arrays for all simulations of all parameter sets.
+    qsim_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    snow_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    soil_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    s1_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    s2_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
+    
+    # Process different param sets in parallel through 'prange'-loop
+    for i in prange(params.size):    
+        # Unpack the model parameters
+        T_t = params['T_t'][i]
+        DD = params['DD'][i]
+        FC = params['FC'][i]
+        Beta = params['Beta'][i]
+        C = params['C'][i]
+        PWP = params['PWP'][i]
+        K_0 = params['K_0'][i]
+        K_1 = params['K_1'][i]
+        K_2 = params['K_2'][i]
+        K_p = params['K_p'][i]
+        L = params['L'][i]
+    
+        # initialize empty arrays for all reservoirs and outflow
+        snow = np.zeros(num_timesteps, np.float64)
+        soil = np.zeros(num_timesteps, np.float64)
+        s1 = np.zeros(num_timesteps, np.float64)
+        s2 = np.zeros(num_timesteps, np.float64)
+        qsim = np.zeros(num_timesteps, np.float64)
+    
+        # set initial values
+        snow[0] = snow_init
+        soil[0] = soil_init
+        s1[0] = s1_init
+        s2[0] = s2_init
+    
+        # Start the model simulation as loop over all timesteps
+        for t in range(1, num_timesteps):
+    
+            # Check if temperature is below threshold
+            if temp[t] < T_t:
+                # accumulate snow
+                snow[t] = snow[t-1] + prec[t]
+                # no liquid water
+                liquid_water = 0
+            else:
+                # melt snow
+                snow[t] = max(0, snow[t-1] - DD * (temp[t] - T_t))
+                # add melted snow to available liquid water
+                liquid_water = prec[t] + min(snow[t-1], DD * (temp[t] - T_t))
+    
+            # calculate the effective precipitation
+            prec_eff = liquid_water * (soil[t-1] / FC) ** Beta
+    
+            # Calculate the potential evapotranspiration
+            pe = (1 + C * (temp[t] - T_m[month[t]])) * PE_m[month[t]]
+    
+            # Calculate the actual evapotranspiration
+            if soil[t-1] > PWP:
+                ea = pe
+            else:
+                ea = pe * (soil[t-1] / PWP)
+    
+            # calculate the actual level of the soil reservoir
+            soil[t] = soil[t-1] + liquid_water - prec_eff - ea
+    
+            # calculate the actual level of the near surface flow reservoir
+            s1[t] = (s1[t-1]
+                     + prec_eff
+                     - max(0, s1[t-1] - L) * K_0
+                     - s1[t-1] * K_1
+                     - s1[t-1] * K_p)
+    
+            # calculate the actual level of the base flow reservoir
+            s2[t] = (s2[t-1]
+                     + s1[t-1] * K_p
+                     - s2[t-1] * K_2)
+    
+            qsim[t] = ((max(0, s1[t-1] - L)) * K_0
+                       + s1[t] * K_1
+                       + s2[t] * K_2)
+            
+        # copy results into arrays of all qsims and storages
+        qsim_all[:, i] = qsim
+        snow_all[:, i] = snow
+        soil_all[:, i] = soil
+        s1_all[:, i] = s1
+        s2_all[:, i] = s2
+    
+    return qsim_all, snow_all, soil_all, s1_all, s2_all
