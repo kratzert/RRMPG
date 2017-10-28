@@ -2,7 +2,6 @@ Introduction
 ############
 
 This repository is a work in progress repository.
-(Due to travelling I won't be regularly online during the next weeks until approx. 23 of october).
 
 Official documentation can be found here: `http://rrmpg.readthedocs.io <http://rrmpg.readthedocs.io>`_
 
@@ -12,7 +11,6 @@ Road map (pull requests welcome!)
 ---------------------------------
 During the last days I was quite busy with my normal job and for the next weeks I'll be in holydays. But before I leave I want to write down my ideas for the further development of this project.
 
-- Change the implementations of the simulate function to accept arrays of model parameters as optional inputs and change the implementation of the model itself (the numba optimized one) to allow inputs of multiple model parameter sets. We can then add a parallelized loop over all parameter sets using Numbas ``prange`` and add the ``parallel=True`` flag to the decorator for parallel simulations of all parameter sets. This could be useful for e.g. Monte-Carlo simulations or other optimizers, where multiple parameter sets are generated and validated at once.
 - Add a routing class. This should will be one of the main focuses in the near future. I'm still undecided in how to build this class and I think this needs good planning. With this routing class it should be possible connect many lumped models (even different models for each sub-catchment since they all have a homogenious model class api) to an entire basin consisting of many sub-catchments. Since there are many ways, how the routing can be implemented, the question is if for each routing procedure one seperate class should be implemented (similar to the models with homogenious api) or one class, where the user can decide by an input argument which scheme to use. I tend to the first one, to be consistent with the model classes. There could be one base class for all routing classes as well, which implements the basic functionality, similar to the model base class.
 - Add more models to the library. This point needs no further explanation I guess. Next planned is the ``CemaNeige`` snow module, which can be coupled with the ``gr4j``.
 - Add example data to the code base. `here <http://tdwg.catchment.org/datasets.html>`_ are some hydrological datasets that could maybe be used. Also utility functions should be added to import the data and preprocess them correctly, so that the user has an easy start with this library.
