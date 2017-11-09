@@ -66,7 +66,7 @@ class GR4J(BaseModel):
                 
         Raises:
             ValueError: If a dictionary of model parameters is passed but one of
-                the parameters is missing.
+                of the parameters is missing.
                     
         """
         super().__init__(params=params)
