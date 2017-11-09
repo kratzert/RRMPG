@@ -9,6 +9,8 @@
 # see <https://opensource.org/licenses/MIT>
 """Implementation of the Cemaneige snow acounting model."""
 
+import numbers
+
 import numpy as np
 
 from numba import njit, prange
@@ -21,13 +23,18 @@ from ..utils.metrics import mse
 class Cemaneige(BaseModel):
     """Implementation of the Cemaneige snow acounting model.
     
-    This class implements the Cemaneige snow acounting model, as presented 
-    in [1]. This model should only be used with daily data.
+    This class implements the Cemaneige snow acounting model, originally 
+    developed by A. Valery [1] (french) and also presented in [2] (english). 
+    This model should only be used with daily data.
     
     If no model parameters are passed upon initialization, generates random
     parameter set.
     
-    [1] Audrey Valery, Vazken Andreassian, Charles Perrin. "'As simple as 
+    [1] Valéry, A. "Modélisation précipitations – débit sous influence nivale.
+    Élaboration d’un module neige et évaluation sur 380 bassins versants".
+    PhD thesis, Cemagref (Antony), AgroParisTech (Paris), 405 pp. (2010)
+    
+    [2] Audrey Valery, Vazken Andreassian, Charles Perrin. "'As simple as 
     possible but not simpler': What is useful in a temperature-based snow-
     accounting routine? Part 2 - Sensitivity analysis of the Cemaneige snow
     accounting routine in 380 Catchments." Journal of Hydrology 517 (2014) 
@@ -47,8 +54,8 @@ class Cemaneige(BaseModel):
     _param_list = ['CTG', 'Kf']    
 
     # Dictonary with the default parameter bounds
-    _default_bounds = {'CTG': (100, 1200),
-                       'Kf': (-5, 3)}
+    _default_bounds = {'CTG': (0, 1),
+                       'Kf': (0, 10)}
     
     # Custom numpy datatype needed for the numba function
     _dtype = np.dtype([('CTG', np.float64),
@@ -62,8 +69,8 @@ class Cemaneige(BaseModel):
                 seperate key/value pairs.
                 
         Raises:
-            ValueError: If a dictionary of model parameters is passed but one of
-                the parameters is missing.
+            ValueError: If a dictionary of model parameters is passed but one
+                of the parameters is missing.
                     
         """
         super().__init__(params=params)
@@ -71,15 +78,97 @@ class Cemaneige(BaseModel):
     def simulate(self, prec, mean_temp, min_temp, max_temp, snow_pack_init=0,  
                  thermal_state_init=0, altitudes=[], met_station_height=None,
                  return_storages=False, params=None):
+        """Simulate the snow-routine of the Cemaneige model.
         
-        # extrapolate data
-        prec = _extrapolate_precipitation(prec, altitudes, met_station_height)
+        This function checks the input data and prepares the data for the 
+        actual simulation function, which is kept outside of the model class 
+        (due to restrictions of Numba). Meteorological input arrays can be 
+        either lists, numpy arrays or pandas Series.
+        
+        In the original Cemaneige model, the catchment is divided into 5 
+        subareas of different elevations with the each of them having the same
+        area. For each elevation layer, the snow routine is calculated
+        separately. Therefore, the meteorological input is extrapolated from
+        the height of the measurement station to the median height of each 
+        sub-area. This feature is optional (also the number of elevation layer)
+        in this implementation an can be activated if the corresponding heights 
+        of each elevation layer is passed as input. In this case, also the 
+        height of the measurement station must be passed.
+        
+        Args:
+            prec: Array of daily precipitation sum [mm]
+            mean_temp: Array of the mean temperature [C]
+            min_temp: Array of the minimum temperature [C]
+            max_temp: Array of the maximum temperature [C]
+            snow_pack_init: (optional) Initial value of the snow pack storage
+            thermal_state_init: (optional) Initial value of the thermal state
+                of the snow pack
+            altitudes: (optional) List of median altitudes of each elevation
+                layer [m]
+            met_station_height: (optional) Height of the meteorological
+                station [m]. Must be provided, if altitudes are passed for the
+                extrapolation of the meteorological data.
+            return_storages: (optional) Boolean, indicating if the model 
+                storages should also be returned.
+            params: (optional) Numpy array of parameter sets, that will be 
+                evaluated a once in parallel. Must be of the models own custom
+                data type. If nothing is passed, the parameters, stored in the 
+                model object, will be used.
+                
+        Returns:
+            An array with the simulated stream flow and optional one array for 
+            each of the two storages.
+            
+        Raises:
+            ValueError: If one of the inputs contains invalid values.
+            TypeError: If one of the inputs has an incorrect datatype.
+            RuntimeError: If there is a size mismatch between meteorological
+                input arrays.
 
-        min_temp, mean_temp, max_temp = _extrapolate_temperature(min_temp, 
-                                                                 mean_temp, 
-                                                                 max_temp, 
-                                                                 altitudes, 
-                                                                 met_station_height)
+        """
+        # Validation check for input data
+        prec = validate_array_input(prec, np.float64, 'prec')
+        mean_temp = validate_array_input(mean_temp, np.float64, 'mean_temp')
+        min_temp = validate_array_input(min_temp, np.float64, 'min_temp')
+        max_temp = validate_array_input(max_temp, np.float64, 'max_temp')
+        
+        # Check if there exist negative precipitation values in the input
+        if check_for_negatives(prec):
+            msg = "The precipitation array contains negative values."
+            raise ValueError(msg)
+        
+        if any(len(ar) != len(prec) for ar in [mean_temp, min_temp, max_temp]):
+            msg = "All meteorological input arrays must have the same length."
+            raise RuntimeError(msg)
+        
+        # Validate the altitude inputs
+        if not isinstance(altitudes, list):
+            raise TypeError("'altitudes' must be a list.")
+        if len(altitudes) > 0:
+            for val in altitudes:
+                if not isinstance(val, numbers.Number):
+                    msg = "All elements in 'altitudes must be numbers."
+                    raise TypeError(msg)
+            if met_station_height is None:
+                msg = ["The height of the meteorological station is missing."]
+                raise ValueError(msg)
+            if not isinstance(met_station_height, numbers.Number):
+                raise TypeError("'met_station_height' must be a number.")
+        
+        
+        # extrapolate data if multiple elevations are provided
+        if len(altitudes) > 0:
+            prec = _extrapolate_precipitation(prec, 
+                                              altitudes, 
+                                              met_station_height)
+
+            (min_temp, 
+             mean_temp, 
+             max_temp) = _extrapolate_temperature(min_temp, mean_temp,
+                                                  max_temp, altitudes, 
+                                                  met_station_height)
+        
+        raise NotImplementedError("Continue here.")
         
         frac_solid_prec = _calculate_solid_fraction(prec, altitudes, mean_temp, 
                                                     min_temp, max_temp)
