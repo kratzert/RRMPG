@@ -329,6 +329,9 @@ def _extrapolate_precipitation(prec, altitudes, met_station_height):
     # precipitation gradient [1/m] defined in cema neige excel version
     beta_altitude = 0.0004
     
+    # elevation threshold
+    z_thresh = 4000
+    
     # Number of elevation layer
     num_layers = len(altitudes)
 
@@ -338,10 +341,26 @@ def _extrapolate_precipitation(prec, altitudes, met_station_height):
     # array for extrapolated precipitation of each elevation layer
     layer_prec = np.zeros((num_timesteps, num_layers), dtype=np.float64)
     
+    # different extrapolation schemes depending on layer elevation
     for l in prange(num_layers):
         
-        layer_prec[:, l] = prec * np.exp((altitudes[l] - met_station_height)
-                                         * beta_altitude)
+        # layer median height smaller than threshold value
+        if altitudes[l] <= z_thresh:
+            layer_prec[:, l] = prec * np.exp((altitudes[l] - met_station_height)
+                                             * beta_altitude)
+            
+        # layer median greater than threshold value
+        else:
+            
+            # elevation of meteorological station smaller than threshold
+            if met_station_height <= z_thresh:
+                layer_prec[:, l] = prec * np.exp((z_thresh - met_station_height)
+                                             * beta_altitude)
+                
+            # no extrapolation if station and layer median above threshold
+            else:
+                layer_prec[:, l] = prec
+                
         
     return layer_prec
         
