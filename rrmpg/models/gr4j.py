@@ -312,9 +312,6 @@ def _simulate_gr4j(prec, etp, s_init, r_init, params):
         x3 = params['x3'][i]
         x4 = params['x4'][i]
         
-        # get the number of simulation timesteps
-        num_timesteps = len(prec)
-        
         # initialize empty arrays w. 1 additional timestep, since the 0th will
         # be used as intial state and the first simulated is the array entry 1
         s_store = np.zeros(num_timesteps + 1, np.float64)

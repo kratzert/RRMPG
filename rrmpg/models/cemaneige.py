@@ -75,8 +75,8 @@ class Cemaneige(BaseModel):
         """
         super().__init__(params=params)
         
-    def simulate(self, prec, mean_temp, min_temp, max_temp, snow_pack_init=0,  
-                 thermal_state_init=0, altitudes=[], met_station_height=None,
+    def simulate(self, prec, mean_temp, min_temp, max_temp, met_station_height,
+                 snow_pack_init=0, thermal_state_init=0, altitudes=[],
                  return_storages=False, params=None):
         """Simulate the snow-routine of the Cemaneige model.
         
@@ -100,14 +100,14 @@ class Cemaneige(BaseModel):
             mean_temp: Array of the mean temperature [C]
             min_temp: Array of the minimum temperature [C]
             max_temp: Array of the maximum temperature [C]
+            met_station_height: Height of the meteorological station [m]. 
+                Needed to calculate the fraction of solid precipitation and
+                optionally for the extrapolation of the meteorological inputs.
             snow_pack_init: (optional) Initial value of the snow pack storage
             thermal_state_init: (optional) Initial value of the thermal state
                 of the snow pack
             altitudes: (optional) List of median altitudes of each elevation
                 layer [m]
-            met_station_height: (optional) Height of the meteorological
-                station [m]. Must be provided, if altitudes are passed for the
-                extrapolation of the meteorological data.
             return_storages: (optional) Boolean, indicating if the model 
                 storages should also be returned.
             params: (optional) Numpy array of parameter sets, that will be 
@@ -154,7 +154,23 @@ class Cemaneige(BaseModel):
                 raise ValueError(msg)
             if not isinstance(met_station_height, numbers.Number):
                 raise TypeError("'met_station_height' must be a number.")
+            
+            # convert list to numpy array
+            altitudes = np.array(altitudes)
+            
+        # validate input of meteorological station height
+        if not isinstance(met_station_height, numbers.Number):
+            raise TypeError("'met_station_height' must be a Number.")
         
+        # validate initial state inputs state inputs
+        if not isinstance(snow_pack_init, numbers.Number):
+            raise TypeError("'snow_pack_init' must be a Number.")
+        if not isinstance(thermal_state_init, numbers.Number):
+            raise TypeError("'thermal_state_init' must be a Number.")
+        
+        # make sure both are floats
+        snow_pack_init = float(snow_pack_init)
+        thermal_state_init = float(thermal_state_init)
         
         # extrapolate data if multiple elevations are provided
         if len(altitudes) > 0:
@@ -167,8 +183,15 @@ class Cemaneige(BaseModel):
              max_temp) = _extrapolate_temperature(min_temp, mean_temp,
                                                   max_temp, altitudes, 
                                                   met_station_height)
-        
-        raise NotImplementedError("Continue here.")
+        else:
+            # expand dimensions of arrays for correct indexing later
+            prec = np.expand_dims(prec, axis=-1)
+            mean_temp = np.expand_dims(mean_temp, axis=-1)
+            min_temp = np.expand_dims(min_temp, axis=-1)
+            max_temp = np.expand_dims(max_temp, axis=-1)
+            
+            # add height of met. station to empty altitudes list
+            altitudes = np.array([met_station_height])
         
         frac_solid_prec = _calculate_solid_fraction(prec, altitudes, mean_temp, 
                                                     min_temp, max_temp)
@@ -190,15 +213,167 @@ class Cemaneige(BaseModel):
                 params = np.expand_dims(params, params.ndim)
             
         
-        outflow = _simulate_cemaneige(prec, frac_solid_prec, mean_temp, 
-                                      snow_pack_init, thermal_state_init, 
-                                      params)
-    
-        return np.mean(outflow, axis=1)
+        if return_storages:
+            
+            outflow, G, eTG = _simulate_cemaneige(prec, mean_temp,
+                                                  frac_solid_prec,
+                                                  snow_pack_init, 
+                                                  thermal_state_init, params)
+            
+            return outflow, G, eTG
+            
+        else:
+            
+            outflow, _, _ = _simulate_cemaneige(prec, mean_temp,  
+                                                frac_solid_prec, 
+                                                snow_pack_init, 
+                                                thermal_state_init, params)            
+            
+            return outflow
+        
+    def fit(self, obs, prec, mean_temp, min_temp, max_temp, met_station_height,
+            snow_pack_init=0, thermal_state_init=0, altitudes=[]):
+        """Fit the Cemaneige model to a observed timeseries
+        
+        This functions uses scipy's global optimizer (differential evolution)
+        to find a good set of parameters for the model, so that the observed 
+        timeseries is simulated as good as possible.        
+        
+        Args:
+            obs: Array of the observed timeseries [mm]
+            prec: Array of daily precipitation sum [mm]
+            mean_temp: Array of the mean temperature [C]
+            min_temp: Array of the minimum temperature [C]
+            max_temp: Array of the maximum temperature [C]
+            met_station_height: Height of the meteorological station [m]. 
+                Needed to calculate the fraction of solid precipitation and
+                optionally for the extrapolation of the meteorological inputs.
+            snow_pack_init: (optional) Initial value of the snow pack storage
+            thermal_state_init: (optional) Initial value of the thermal state
+                of the snow pack
+            altitudes: (optional) List of median altitudes of each elevation
+                layer [m]
+                
+        Returns:
+            res: A scipy OptimizeResult class object.
+            
+        Raises:
+            ValueError: If one of the inputs contains invalid values.
+            TypeError: If one of the inputs has an incorrect datatype.
+            RuntimeErrror: If there is a size mismatch between the 
+                precipitation and the pot. evapotranspiration input.
+        
+        """
+        # Validation check for input data
+        obs = validate_array_input(obs, np.float64, 'obs')
+        prec = validate_array_input(prec, np.float64, 'prec')
+        mean_temp = validate_array_input(mean_temp, np.float64, 'mean_temp')
+        min_temp = validate_array_input(min_temp, np.float64, 'min_temp')
+        max_temp = validate_array_input(max_temp, np.float64, 'max_temp')
+        
+        # Check if there exist negative precipitation values in the input
+        if check_for_negatives(prec):
+            msg = "The precipitation array contains negative values."
+            raise ValueError(msg)
+        
+        if any(len(ar) != len(prec) for ar in [mean_temp, min_temp, max_temp]):
+            msg = "All meteorological input arrays must have the same length."
+            raise RuntimeError(msg)
+        
+        # Validate the altitude inputs
+        if not isinstance(altitudes, list):
+            raise TypeError("'altitudes' must be a list.")
+        if len(altitudes) > 0:
+            for val in altitudes:
+                if not isinstance(val, numbers.Number):
+                    msg = "All elements in 'altitudes must be numbers."
+                    raise TypeError(msg)
+            if met_station_height is None:
+                msg = ["The height of the meteorological station is missing."]
+                raise ValueError(msg)
+            if not isinstance(met_station_height, numbers.Number):
+                raise TypeError("'met_station_height' must be a number.")
+            
+            # convert list to numpy array
+            altitudes = np.array(altitudes)
+            
+        # validate input of meteorological station height
+        if not isinstance(met_station_height, numbers.Number):
+            raise TypeError("'met_station_height' must be a Number.")
+        
+        # validate initial state inputs state inputs
+        if not isinstance(snow_pack_init, numbers.Number):
+            raise TypeError("'snow_pack_init' must be a Number.")
+        if not isinstance(thermal_state_init, numbers.Number):
+            raise TypeError("'thermal_state_init' must be a Number.")
+        
+        # make sure both are floats
+        snow_pack_init = float(snow_pack_init)
+        thermal_state_init = float(thermal_state_init)
+        
+        # extrapolate data if multiple elevations are provided
+        if len(altitudes) > 0:
+            prec = _extrapolate_precipitation(prec, 
+                                              altitudes, 
+                                              met_station_height)
 
+            (min_temp, 
+             mean_temp, 
+             max_temp) = _extrapolate_temperature(min_temp, mean_temp,
+                                                  max_temp, altitudes, 
+                                                  met_station_height)
+        else:
+            # expand dimensions of arrays for correct indexing later
+            prec = np.expand_dims(prec, axis=-1)
+            mean_temp = np.expand_dims(mean_temp, axis=-1)
+            min_temp = np.expand_dims(min_temp, axis=-1)
+            max_temp = np.expand_dims(max_temp, axis=-1)
+            
+            # add height of met. station to empty altitudes list
+            altitudes = np.array([met_station_height])
+        
+        frac_solid_prec = _calculate_solid_fraction(prec, altitudes, mean_temp, 
+                                                    min_temp, max_temp)
+
+        # pack input arguments for scipy optimizer
+        args = (obs, prec, mean_temp, frac_solid_prec, snow_pack_init, 
+                thermal_state_init, self._dtype)
+        bnds = tuple([self._default_bounds[p] for p in self._param_list])
+        
+        # call scipy's global optimizer
+        res = optimize.differential_evolution(_loss, bounds=bnds, args=args)
+
+        return res
+
+
+def _loss(X, *args):
+    """Return the loss value for the current parameter set."""
+    # Unpack static arrays
+    obs = args[0]
+    prec = args[1]
+    mean_temp = args[2]
+    frac_solid_prec = args[3]
+    snow_pack_init = args[4]
+    thermal_state_init = args[5]
+    dtype = args[6]
+    
+    # Create custom numpy array of the model parameters
+    params = np.zeros(1, dtype=dtype)
+    params['CTG'] = X[0]
+    params['Kf'] = X[1]
+    
+    # Calcuate simulated outflow
+    outflow, _, _ = _simulate_cemaneige(prec, mean_temp, frac_solid_prec, 
+                                        snow_pack_init, thermal_state_init, 
+                                        params)
+    
+    # calculate loss as the mean squared error
+    loss_value = mse(obs, outflow)
+    
+    return loss_value
 
 @njit(parallel=True)
-def _simulate_cemaneige(prec, frac_solid_prec, mean_temp, snow_pack_init,
+def _simulate_cemaneige(prec, mean_temp, frac_solid_prec, snow_pack_init,
                         thermal_state_init, params):
     # Number of simulation timesteps
     num_timesteps = len(prec)
@@ -206,6 +381,7 @@ def _simulate_cemaneige(prec, frac_solid_prec, mean_temp, snow_pack_init,
     # Number of elevation layers
     num_layers = prec.shape[1]
     
+    # Unpack model parameters
     CTG = params['CTG'][0]
     Kf = params['Kf'][0]
     
@@ -218,12 +394,15 @@ def _simulate_cemaneige(prec, frac_solid_prec, mean_temp, snow_pack_init,
     # outflow as sum of liquid precipitation and melt of each layer
     liquid_water = np.zeros((num_timesteps, num_layers), np.float64)
     
+    # total outflow which is the mean of liquid water of each layer
+    outflow = np.zeros(num_timesteps, np.float64)
+    
     # Calculate Cemaneige routine for each elevation zone indipentendly
-    for l in range(num_layers):
+    for l in prange(num_layers):
         
         # Split input precipitation into solid and liquid precipitation
-        snow = prec[:,l] * frac_solid_prec[:,l]
-        rain = prec[:,l] - snow
+        snow = prec[:, l] * frac_solid_prec[:, l]
+        rain = prec[:, l] - snow
         
         # calc the snow cover threshold from mean anual solid precipitation
         G_tresh = 0.9 * 365.25 * np.mean(snow)
@@ -268,8 +447,12 @@ def _simulate_cemaneige(prec, frac_solid_prec, mean_temp, snow_pack_init,
             
             # Output: Actual snow-melt + liquid precipitation
             liquid_water[t, l] = rain[t] + melt
-    
-    return liquid_water
+            
+    # calculate the outflow as mean of each layer
+    for j in prange(num_timesteps):
+        outflow[j] = np.mean(liquid_water[j, :])
+
+    return outflow, G, eTG
 
 @njit(parallel=True)
 def _calculate_solid_fraction(prec, altitudes, mean_temp, min_temp, max_temp):
@@ -361,7 +544,6 @@ def _extrapolate_precipitation(prec, altitudes, met_station_height):
             else:
                 layer_prec[:, l] = prec
                 
-        
     return layer_prec
         
 @njit(parallel=True)
