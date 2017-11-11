@@ -211,23 +211,36 @@ class Cemaneige(BaseModel):
             # if only one parameter set is passed, expand dimensions to 1D
             if isinstance(params, np.void):
                 params = np.expand_dims(params, params.ndim)
-            
         
+        # Create array for each parameter set and call simulation one by one
+        outflow = np.zeros((prec.shape[0], params.size), np.float64)
         if return_storages:
+            G = np.zeros((prec.shape[0], len(altitudes), params.size), 
+                         np.float64)
+            eTG = np.zeros((prec.shape[0], len(altitudes), params.size), 
+                           np.float64)
+        
+        for i in range(params.size):
             
-            outflow, G, eTG = _simulate_cemaneige(prec, mean_temp,
-                                                  frac_solid_prec,
-                                                  snow_pack_init, 
-                                                  thermal_state_init, params)
-            
-            return outflow, G, eTG
-            
-        else:
-            
-            outflow, _, _ = _simulate_cemaneige(prec, mean_temp,  
-                                                frac_solid_prec, 
-                                                snow_pack_init, 
-                                                thermal_state_init, params)            
+            if return_storages:
+                
+                (outflow[:, i], 
+                 G[:, :, i], 
+                 eTG[:, :, i]) = _simulate_cemaneige(prec, mean_temp,
+                                                     frac_solid_prec,
+                                                     snow_pack_init, 
+                                                     thermal_state_init, 
+                                                     params[i])
+                
+                return outflow, G, eTG
+                
+            else:
+                
+                outflow[:, i], _, _ = _simulate_cemaneige(prec, mean_temp,  
+                                                          frac_solid_prec, 
+                                                          snow_pack_init, 
+                                                          thermal_state_init, 
+                                                          params[i])            
             
             return outflow
         
@@ -382,8 +395,8 @@ def _simulate_cemaneige(prec, mean_temp, frac_solid_prec, snow_pack_init,
     num_layers = prec.shape[1]
     
     # Unpack model parameters
-    CTG = params['CTG'][0]
-    Kf = params['Kf'][0]
+    CTG = params['CTG']
+    Kf = params['Kf']
     
     # snow pack of each layer
     G = np.zeros((num_timesteps, num_layers), np.float64)
