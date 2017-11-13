@@ -13,10 +13,13 @@ import numbers
 
 import numpy as np
 
-from numba import njit, prange
 from scipy import optimize
 
 from .basemodel import BaseModel
+from .cemaneige_model import run_cemaneige
+from .cemaneige_utils import (extrapolate_precipitation, 
+                              extrapolate_temperature,
+                              calculate_solid_fraction)
 from ..utils.array_checks import validate_array_input, check_for_negatives
 from ..utils.metrics import mse
 
@@ -174,15 +177,15 @@ class Cemaneige(BaseModel):
         
         # extrapolate data if multiple elevations are provided
         if len(altitudes) > 0:
-            prec = _extrapolate_precipitation(prec, 
-                                              altitudes, 
-                                              met_station_height)
+            prec = extrapolate_precipitation(prec, 
+                                             altitudes, 
+                                             met_station_height)
 
             (min_temp, 
              mean_temp, 
-             max_temp) = _extrapolate_temperature(min_temp, mean_temp,
-                                                  max_temp, altitudes, 
-                                                  met_station_height)
+             max_temp) = extrapolate_temperature(min_temp, mean_temp,
+                                                 max_temp, altitudes, 
+                                                 met_station_height)
         else:
             # expand dimensions of arrays for correct indexing later
             prec = np.expand_dims(prec, axis=-1)
@@ -193,8 +196,8 @@ class Cemaneige(BaseModel):
             # add height of met. station to empty altitudes list
             altitudes = np.array([met_station_height])
         
-        frac_solid_prec = _calculate_solid_fraction(prec, altitudes, mean_temp, 
-                                                    min_temp, max_temp)
+        frac_solid_prec = calculate_solid_fraction(prec, altitudes, mean_temp, 
+                                                   min_temp, max_temp)
         
         # If no parameters were passed, prepare array w. params from attributes
         if params is None:
@@ -226,21 +229,19 @@ class Cemaneige(BaseModel):
                 
                 (outflow[:, i], 
                  G[:, :, i], 
-                 eTG[:, :, i]) = _simulate_cemaneige(prec, mean_temp,
-                                                     frac_solid_prec,
-                                                     snow_pack_init, 
-                                                     thermal_state_init, 
-                                                     params[i])
+                 eTG[:, :, i]) = run_cemaneige(prec, mean_temp, frac_solid_prec,
+                                               snow_pack_init, 
+                                               thermal_state_init, params[i])
                 
                 return outflow, G, eTG
                 
             else:
                 
-                outflow[:, i], _, _ = _simulate_cemaneige(prec, mean_temp,  
-                                                          frac_solid_prec, 
-                                                          snow_pack_init, 
-                                                          thermal_state_init, 
-                                                          params[i])            
+                outflow[:, i], _, _ = run_cemaneige(prec, mean_temp,  
+                                                    frac_solid_prec, 
+                                                    snow_pack_init, 
+                                                    thermal_state_init, 
+                                                    params[i])            
             
             return outflow
         
@@ -326,15 +327,15 @@ class Cemaneige(BaseModel):
         
         # extrapolate data if multiple elevations are provided
         if len(altitudes) > 0:
-            prec = _extrapolate_precipitation(prec, 
-                                              altitudes, 
-                                              met_station_height)
+            prec = extrapolate_precipitation(prec, 
+                                             altitudes, 
+                                             met_station_height)
 
             (min_temp, 
              mean_temp, 
-             max_temp) = _extrapolate_temperature(min_temp, mean_temp,
-                                                  max_temp, altitudes, 
-                                                  met_station_height)
+             max_temp) = extrapolate_temperature(min_temp, mean_temp,
+                                                 max_temp, altitudes, 
+                                                 met_station_height)
         else:
             # expand dimensions of arrays for correct indexing later
             prec = np.expand_dims(prec, axis=-1)
@@ -345,8 +346,8 @@ class Cemaneige(BaseModel):
             # add height of met. station to empty altitudes list
             altitudes = np.array([met_station_height])
         
-        frac_solid_prec = _calculate_solid_fraction(prec, altitudes, mean_temp, 
-                                                    min_temp, max_temp)
+        frac_solid_prec = calculate_solid_fraction(prec, altitudes, mean_temp, 
+                                                   min_temp, max_temp)
 
         # pack input arguments for scipy optimizer
         args = (obs, prec, mean_temp, frac_solid_prec, snow_pack_init, 
@@ -376,212 +377,11 @@ def _loss(X, *args):
     params['Kf'] = X[1]
     
     # Calcuate simulated outflow
-    outflow, _, _ = _simulate_cemaneige(prec, mean_temp, frac_solid_prec, 
-                                        snow_pack_init, thermal_state_init, 
-                                        params)
+    outflow, _, _ = run_cemaneige(prec, mean_temp, frac_solid_prec, 
+                                  snow_pack_init, thermal_state_init, params)
     
     # calculate loss as the mean squared error
     loss_value = mse(obs, outflow)
     
     return loss_value
 
-@njit(parallel=True)
-def _simulate_cemaneige(prec, mean_temp, frac_solid_prec, snow_pack_init,
-                        thermal_state_init, params):
-    # Number of simulation timesteps
-    num_timesteps = len(prec)
-    
-    # Number of elevation layers
-    num_layers = prec.shape[1]
-    
-    # Unpack model parameters
-    CTG = params['CTG']
-    Kf = params['Kf']
-    
-    # snow pack of each layer
-    G = np.zeros((num_timesteps, num_layers), np.float64)
-    
-    # thermal state of each layer
-    eTG = np.zeros((num_timesteps, num_layers), np.float64)
-    
-    # outflow as sum of liquid precipitation and melt of each layer
-    liquid_water = np.zeros((num_timesteps, num_layers), np.float64)
-    
-    # total outflow which is the mean of liquid water of each layer
-    outflow = np.zeros(num_timesteps, np.float64)
-    
-    # Calculate Cemaneige routine for each elevation zone indipentendly
-    for l in prange(num_layers):
-        
-        # Split input precipitation into solid and liquid precipitation
-        snow = prec[:, l] * frac_solid_prec[:, l]
-        rain = prec[:, l] - snow
-        
-        # calc the snow cover threshold from mean anual solid precipitation
-        G_tresh = 0.9 * 365.25 * np.mean(snow)
-        
-        for t in range(num_timesteps):
-            
-            # Accumulate solid precipitation to snow pack
-            if t == 0:
-                G[t, l] = snow_pack_init
-            else: 
-                G[t, l] = G[t-1, l] + snow[t]
-            
-            # Calculate snow pack thermal state before melt eTG ( eTG <= 0 )
-            if t == 0:
-                eTG[t, l] = thermal_state_init
-            else:
-                eTG[t, l] = CTG * eTG[t-1, l] + (1 - CTG) * mean_temp[t, l]
-            if eTG[t, l] > 0:
-                eTG[t, l] = 0
-            
-            # Calculate potential melt 
-            if eTG[t, l] == 0 and mean_temp[t, l] > 0:
-                pot_melt = Kf * mean_temp[t, l]
-                
-                # cap the potential snow melt to the state of the snow pack
-                if pot_melt > G[t, l]:
-                    pot_melt = G[t, l]
-            else:
-                pot_melt = 0
-                
-            # Calculate snow-covered area 
-            if G[t, l] < G_tresh:
-                G_ratio = G[t, l] / G_tresh
-            else:
-                G_ratio = 1
-                
-            # Calculate actual snow melt
-            melt = (0.9 * G_ratio + 0.1) * pot_melt
-            
-            # Update snow pack
-            G[t, l] = G[t, l] - melt 
-            
-            # Output: Actual snow-melt + liquid precipitation
-            liquid_water[t, l] = rain[t] + melt
-            
-    # calculate the outflow as mean of each layer
-    for j in prange(num_timesteps):
-        outflow[j] = np.mean(liquid_water[j, :])
-
-    return outflow, G, eTG
-
-@njit(parallel=True)
-def _calculate_solid_fraction(prec, altitudes, mean_temp, min_temp, max_temp):
-    # elevation threshold, since calculation depends on altitude
-    z_thresh = 1500
-    
-    # Number of elevation layer
-    num_layers = len(altitudes)
-
-    # Number of timesteps
-    num_timesteps = prec.shape[0]
-    
-    # array for solid fraction of precipitation for each zone and timestep
-    solid_fraction = np.zeros((num_timesteps, num_layers), dtype=np.float64)
-    
-    for l in prange(num_layers):
-        
-        # apply different calculation depending of altitude of elevation zone
-        if altitudes[l] < z_thresh:
-        
-            for t in prange(num_timesteps):
-                
-                # if max daily temp under 0, everything is solid
-                if max_temp[t, l] <= 0:
-                    solid_fraction[t, l] = 1
-                
-                # if min daily temp is above 0 everything is liquid    
-                elif min_temp[t, l] >= 0:              
-                    solid_fraction[t, l] = 0
-                
-                # calculate fraction between 0-1    
-                else:
-                    solid_fraction[t, l] = 1 - (max_temp[t, l] / 
-                                               (max_temp[t, l] - 
-                                                min_temp[t, l]))
-                    
-        else:
-            
-            for t in prange(num_timesteps):
-                
-                # if mean temp greater than +3 everything is liquid
-                if mean_temp[t, l] >= 3:
-                    solid_fraction[t, l] = 0
-                    
-                # if mean temp smaller than 0 everything is solid
-                elif mean_temp[t, l] <= 0:
-                    solid_fraction[t, l] = 1
-                    
-                # calculate fraction between 0-1
-                else:
-                    solid_fraction[t, l] = 1 - (mean_temp[t, l] + 1) / 4
-            
-    return solid_fraction
-   
-@njit(parallel=True)    
-def _extrapolate_precipitation(prec, altitudes, met_station_height):
-    # precipitation gradient [1/m] defined in cema neige excel version
-    beta_altitude = 0.0004
-    
-    # elevation threshold
-    z_thresh = 4000
-    
-    # Number of elevation layer
-    num_layers = len(altitudes)
-
-    # Number of timesteps
-    num_timesteps = prec.shape[0]
-    
-    # array for extrapolated precipitation of each elevation layer
-    layer_prec = np.zeros((num_timesteps, num_layers), dtype=np.float64)
-    
-    # different extrapolation schemes depending on layer elevation
-    for l in prange(num_layers):
-        
-        # layer median height smaller than threshold value
-        if altitudes[l] <= z_thresh:
-            layer_prec[:, l] = prec * np.exp((altitudes[l] - met_station_height)
-                                             * beta_altitude)
-            
-        # layer median greater than threshold value
-        else:
-            
-            # elevation of meteorological station smaller than threshold
-            if met_station_height <= z_thresh:
-                layer_prec[:, l] = prec * np.exp((z_thresh - met_station_height)
-                                             * beta_altitude)
-                
-            # no extrapolation if station and layer median above threshold
-            else:
-                layer_prec[:, l] = prec
-                
-    return layer_prec
-        
-@njit(parallel=True)
-def _extrapolate_temperature(min_temp, mean_temp, max_temp, altitudes,
-                             met_station_height):
-    # temperature gradient [mm/m] defined in cema neige excel version
-    theta_temp = -0.0065
-    
-    # Number of elevation layer
-    num_layers = len(altitudes)
-
-    # Number of timesteps
-    num_timesteps = min_temp.shape[0]
-    
-    # initialize arrays for each variable and all layer
-    layer_min_temp = np.zeros((num_timesteps, num_layers), dtype=np.float64)
-    layer_mean_temp = np.zeros((num_timesteps, num_layers), dtype=np.float64)
-    layer_max_temp = np.zeros((num_timesteps, num_layers), dtype=np.float64)
-    
-    for l in prange(num_layers):
-        delta_temp = (altitudes[l] - met_station_height) * theta_temp
-        
-        # add delta temp to each temp variable
-        layer_min_temp[:, l] = min_temp + delta_temp
-        layer_mean_temp[:, l] = mean_temp + delta_temp
-        layer_max_temp[:, l] = max_temp + delta_temp
-        
-    return layer_min_temp, layer_mean_temp, layer_max_temp
