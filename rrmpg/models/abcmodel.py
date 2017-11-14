@@ -8,13 +8,12 @@
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
 
-"""Implementation of the ABC-Model."""
+"""Interface to the the ABC-Model."""
 
 import numbers
 
 import numpy as np
 
-from numba import njit, prange
 from scipy import optimize
 
 from .basemodel import BaseModel
@@ -24,7 +23,7 @@ from ..utils.array_checks import check_for_negatives, validate_array_input
 
 
 class ABCModel(BaseModel):
-    """Implementation of the ABC-Model.
+    """Interface to the the ABC-Model.
 
     This model implements the classical ABC-Model. It was developed for
     educational purpose and represents a simple linear model.

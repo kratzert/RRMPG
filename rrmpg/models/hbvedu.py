@@ -8,7 +8,7 @@
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
 
-"""Implementation of the educational version of the HBV model."""
+"""Interface to the educational version of the HBV model."""
 
 import numbers
 
@@ -23,12 +23,10 @@ from ..utils.array_checks import check_for_negatives, validate_array_input
 
 
 class HBVEdu(BaseModel):
-    """Implementation of the educational version of the HBV model.
-
-    Original publication:
-        Aghakouchak, Amir, and Emad Habib. "Application of a conceptual
-        hydrologic model in teaching hydrologic processes." International
-        Journal of Engineering Education 26.4 (S1) (2010).
+    """Interface to the educational version of the HBV model.
+    
+    This class builds an interface to the HBV educational model as presented in
+    [1]. This model should only be used with daily data.
 
     If no model parameters are passed upon initialization, generates random
     parameter set.
@@ -41,6 +39,10 @@ class HBVEdu(BaseModel):
     Raises:
         ValueError: If Area isn't a positive numerical value or on model
             parameter is missing in the passed dictonary.
+            
+    [1] Aghakouchak, Amir, and Emad Habib. "Application of a conceptual 
+    hydrologic model in teaching hydrologic processes." International Journal 
+    of Engineering Education 26.4 (S1) (2010).
 
     """
 
@@ -99,9 +101,7 @@ class HBVEdu(BaseModel):
         """Simulate rainfall-runoff process for given input.
 
         This function bundles the model parameters and validates the
-        meteorological inputs, then calls the optimized model routine. Due
-        to restrictions with the use of numba, this routine is kept outside
-        of this model class.
+        meteorological inputs, then calls the optimized model routine.
         The meteorological inputs can be either list, numpy array or pandas 
         Series.
 

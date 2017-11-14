@@ -14,7 +14,24 @@ from numba import njit
 
 @njit
 def run_abcmodel(prec, initial_state, params):
-    """Run a simulation of the ABC-model for given input and param sets."""
+    """Implementation of the ABC-Model.
+    
+    This function should be called via the .simulate() function of the ABCModel
+    class and not directly. It is kept in a separate file for less confusion
+    if anyone wants to inspect the actual model routine.
+    
+    The naming of the variables is kept as in the original publication.
+    
+    Args:
+        prec: Numpy [t] array, which contains the precipitation input.
+        initial_state: Scalar for the intial state of the storage.
+        params: Numpy array of custom dtype, which contains the model parameter.
+        
+    Returns:
+        qsim: Numpy [t] array with the simulated streamflow.
+        storage: Numpy [t] array with the state of the storage of each timestep.
+
+    """
     # Number of simulation timesteps
     num_timesteps = len(prec)
     

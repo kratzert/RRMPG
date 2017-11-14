@@ -7,7 +7,7 @@
 #
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
-"""Implementation of the Cemaneige snow acounting model."""
+"""Interface to the Cemaneige snow routine."""
 
 import numbers
 
@@ -24,11 +24,11 @@ from ..utils.array_checks import validate_array_input, check_for_negatives
 from ..utils.metrics import mse
 
 class Cemaneige(BaseModel):
-    """Implementation of the Cemaneige snow acounting model.
+    """Interface to the Cemaneige snow routine.
     
-    This class implements the Cemaneige snow acounting model, originally 
-    developed by A. Valery [1] (french) and also presented in [2] (english). 
-    This model should only be used with daily data.
+    This class builds an interface to the implementation of the Cemaneige snow 
+    acounting model, originally developed by A. Valery [1] (french) and also 
+    presented in [2] (english). This model should only be used with daily data.
     
     If no model parameters are passed upon initialization, generates random
     parameter set.

@@ -15,7 +15,29 @@ from numba import njit
 
 @njit 
 def run_gr4j(prec, etp, s_init, r_init, params):
-    """Actual run function of the gr4j hydrological model."""
+    """Implementation of the GR4J model.
+    
+    This function should be called via the .simulate() function of the GR4J
+    class and not directly. It is kept in a separate file for less confusion
+    if anyone wants to inspect the actual model routine.
+    
+    The naming of the variables is kept as in the original publication.
+    
+    Args:
+        prec: Numpy [t] array, which contains the precipitation input.
+        etp: Numpty [t] array, which contains the evapotranspiration input.
+        s_init: Scalar for the initial state of the s-storage.
+        r_init: Scalar for the initial state of the r-storage.
+        params: Numpy array of custom dtype, which contains the model parameter.
+        
+    Returns:
+        qsim: Numpy [t] array with the simulated streamflow.
+        s_store: Numpy [t] array with the state of the s-storage of each
+            timestep.
+        r_store: Numpy [t] array with the state of the r-storage of each
+            timestep.
+        
+    """
     # Number of simulation timesteps
     num_timesteps = len(prec)
     

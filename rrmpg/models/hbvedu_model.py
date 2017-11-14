@@ -15,7 +15,38 @@ from numba import njit
 @njit
 def run_hbvedu(temp, prec, month, PE_m, T_m, snow_init, soil_init, s1_init, 
                s2_init, params):
-    """Run the educational HBV model for given inputs and model parameters."""
+    """Implementation of the HBV educational model.
+    
+    This function should be called via the .simulate() function of the HBVEdu
+    class and not directly. It is kept in a separate file for less confusion
+    if anyone wants to inspect the actual model routine.
+    
+    The naming of the variables is kept as in the original publication.
+    
+    Args:
+        temp: Numpy [t] array, which contains the daily mean temperature.
+        prec: Numpy [t] array, which contains the daily precipitation.
+        month: Numpy [t] array, containing integers that hold the number of the
+            month of the current timestep (from 0 to 11 because of Pythons 
+            zero indexing).
+        PE_m: Numpy array of length 12, containing the long-term monthly 
+            potential evapotranspiration.
+        T_m: Numpy array of length 12, containing the long-term monthly 
+            temperature.
+        snow_init: Scalar for the initial state of the snow storage.
+        soil_init: Scalar for the initial state of the soil storage.
+        s1_init: Scalar for the initial state of the s1 storage.
+        s2_init: Scalar for the initial state of the s2 storage.
+        params: Numpy array of custom dtype, which contains the model parameter.
+    
+    Returns:
+        qsim: Numpy [t] array with the simulated streamflow.
+        snow: Numpy [t] with the state of the snow storage of each timestep.
+        soil: Numpy [t] with the state of the soil storage of each timestep.
+        s1: Numpy [t] with the state of the s1-storage of each timestep.
+        s2: Numpy [t] with the state of the s2-storage of each timestep.
+    
+    """
     # Number of simulation timesteps
     num_timesteps = len(prec)
     

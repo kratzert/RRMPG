@@ -14,6 +14,38 @@ from numba import njit, prange
 
 @njit(parallel=True)
 def calculate_solid_fraction(prec, altitudes, mean_temp, min_temp, max_temp):
+    """Function to calculate the fraction of solid precipitation.
+    
+    This function is taken from the airGR R-package [1]. It calculates the
+    fraction of solid precipitation as a function of the altitude and the daily
+    min-/mean-/max-temperature. The elevation threshold of 1500 m, which is 
+    used to apply different functions depending on the height can be found in
+    [2].
+    
+    Args:
+        prec: Numpy [t,n] array, which contains the precipitation for each 
+            elevation layer n.
+        altitudes: Numpy [n] array, with the median elevation of each 
+            elevation layer.
+        mean_temp: Numpy [t,n] array, which contains the daily mean temperature 
+            for each elevation layer n.
+        min_temp: Numpy [t,n] array, which contains the daily min temperature
+            for each elevation layer n.
+        max_temp: Numpy [t,n] array, which contains the daily max temperature
+            for each elevation layer n.
+        
+    
+    Returns:
+        frac_solid_prec: Numpy [t,n] array, which contains the fraction of 
+            solid precipitation for each elevation layer n.
+    
+    [1] https://odelaigue.github.io/airGR/
+    [2] Audrey Valery, Vazken Andreassian, Charles Perrin. "'As simple as 
+    possible but not simpler': What is useful in a temperature-based snow-
+    accounting routine? Part 2 - Sensitivity analysis of the Cemaneige snow
+    accounting routine in 380 Catchments." Journal of Hydrology 517 (2014) 
+    1176-1187.
+    """
     # elevation threshold, since calculation depends on altitude
     z_thresh = 1500
     
@@ -67,7 +99,28 @@ def calculate_solid_fraction(prec, altitudes, mean_temp, min_temp, max_temp):
    
 @njit(parallel=True)    
 def extrapolate_precipitation(prec, altitudes, met_station_height):
-    # precipitation gradient [1/m] defined in cema neige excel version
+    """Extrapolate precipitation to any given height.
+    
+    This function can be used to extrapolate precipitation data from the height
+    of the meteorological measurement station to any given height. The routine
+    is take from the Excel version, which was released by the Cemaneige's 
+    authors [1].
+    
+    Args:
+        prec: Numpy [t] array, which contains the precipitation input as 
+            measured at the meteorological station.
+        altitudes: Numpty [n] array of the median altitudes of each elevation
+            layer.
+        met_station_height: Scalar, which is the elevation above sea level of
+            the meteorological station.
+            
+    Returns:
+        layer_prec: Numpy [t,n] array, with the precipitation of each elevation
+            layer n.
+    
+    [1] https://webgr.irstea.fr/en/modeles/modele-de-neige/
+    """
+    # precipitation gradient [1/m] defined in Cemaneige excel version
     beta_altitude = 0.0004
     
     # elevation threshold
@@ -107,6 +160,29 @@ def extrapolate_precipitation(prec, altitudes, met_station_height):
 @njit(parallel=True)
 def extrapolate_temperature(min_temp, mean_temp, max_temp, altitudes,
                              met_station_height):
+    """Extrapolate temperature to any given height.
+    
+    This function can be used to extrapolate temperature data from the height
+    of the meteorological measurement station to any given height. The routine
+    is take from the Excel version, which was released by the Cemaneige's 
+    authors [1].
+    
+    Args:
+        min_temp: Numpy [t] array, which contains the daily min temperature.    
+        mean_temp: Numpy [t] array, which contains the daily mean temperature.
+        max_temp: Numpy [t] array, which contains the daily max temperature.
+        altitudes: Numpty [n] array of the median altitudes of each elevation
+            layer.
+        met_station_height: Scalar, which is the elevation above sea level of
+            the meteorological station.
+            
+    Returns:
+        layer_min_temp: Numpy [t,n] array, layer-wise minium daily temperature.
+        layer_mean_temp: Numpy [t,n] array, layer-wise mean daily temperature.
+        layer_max_temp: Numpy [t,n] array, layer-wise maximum daily temperature.
+        
+    [1] https://webgr.irstea.fr/en/modeles/modele-de-neige/
+    """
     # temperature gradient [mm/m] defined in cema neige excel version
     theta_temp = -0.0065
     

@@ -7,7 +7,7 @@
 #
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
-"""Implementation of the GR4J hydrological model."""
+"""Interface to the GR4J hydrological model."""
 
 import numpy as np
 
@@ -20,10 +20,10 @@ from ..utils.metrics import mse
 
 
 class GR4J(BaseModel):
-    """Implementation of the GR4J hydrological model.
+    """Interface to the GR4J hydrological model.
     
-    This class implements the GR4J model, as presented in [1]. This model 
-    should only be used with daily data.
+    This class builds an interface to the GR4J model, as presented in [1]. 
+    This model should only be used with daily data.
     
     If no model parameters are passed upon initialization, generates random
     parameter set.
@@ -76,9 +76,7 @@ class GR4J(BaseModel):
         """Simulate rainfall-runoff process for given input.
         
         This function bundles the model parameters and validates the 
-        meteorological inputs, then calls the optimized model routine. Due to 
-        restrictions with the use of Numba, this routine is kept outside 
-        of this model class.
+        meteorological inputs, then calls the optimized model routine.
         The meteorological inputs can be either list, numpy arrays or pandas
         Series.
         
