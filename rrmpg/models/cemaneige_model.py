@@ -21,7 +21,7 @@ def run_cemaneige(prec, mean_temp, frac_solid_prec, snow_pack_init,
     Cemaneige class and not directly. It is kept in a separate file for less 
     confusion if anyone wants to inspect the actual model routine.
     
-    The naming of the variables is kept as in the original publication.
+    The naming of the variables is kept as in the original publication [1].
     
     Args:
         prec: Numpy [t,n] array, which contains the precipitation for each 
@@ -41,6 +41,10 @@ def run_cemaneige(prec, mean_temp, frac_solid_prec, snow_pack_init,
             each timestep.
         eTG: Numpy [t] array, which contains the thermal state of the snow
             pack for each timestep.
+            
+    [1] Valéry, A. "Modélisation précipitations – débit sous influence nivale.
+    Élaboration d’un module neige et évaluation sur 380 bassins versants".
+    PhD thesis, Cemagref (Antony), AgroParisTech (Paris), 405 pp. (2010)
         
     """
     # Number of simulation timesteps

@@ -20,7 +20,7 @@ def run_abcmodel(prec, initial_state, params):
     class and not directly. It is kept in a separate file for less confusion
     if anyone wants to inspect the actual model routine.
     
-    The naming of the variables is kept as in the original publication.
+    The naming of the variables is kept as in the original publication [1].
     
     Args:
         prec: Numpy [t] array, which contains the precipitation input.
@@ -31,6 +31,8 @@ def run_abcmodel(prec, initial_state, params):
         qsim: Numpy [t] array with the simulated streamflow.
         storage: Numpy [t] array with the state of the storage of each timestep.
 
+    [1] Myron B. Fiering "Streamflow synthesis" Cambridge, Harvard University
+    Press, 1967. 139 P. (1967).
     """
     # Number of simulation timesteps
     num_timesteps = len(prec)

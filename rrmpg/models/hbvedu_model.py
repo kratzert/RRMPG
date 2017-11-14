@@ -21,7 +21,7 @@ def run_hbvedu(temp, prec, month, PE_m, T_m, snow_init, soil_init, s1_init,
     class and not directly. It is kept in a separate file for less confusion
     if anyone wants to inspect the actual model routine.
     
-    The naming of the variables is kept as in the original publication.
+    The naming of the variables is kept as in the original publication [1].
     
     Args:
         temp: Numpy [t] array, which contains the daily mean temperature.
@@ -45,6 +45,10 @@ def run_hbvedu(temp, prec, month, PE_m, T_m, snow_init, soil_init, s1_init,
         soil: Numpy [t] with the state of the soil storage of each timestep.
         s1: Numpy [t] with the state of the s1-storage of each timestep.
         s2: Numpy [t] with the state of the s2-storage of each timestep.
+    
+    [1] Aghakouchak, Amir, and Emad Habib. "Application of a conceptual 
+    hydrologic model in teaching hydrologic processes." International Journal 
+    of Engineering Education 26.4 (S1) (2010).
     
     """
     # Number of simulation timesteps

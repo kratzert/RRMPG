@@ -21,7 +21,7 @@ def run_gr4j(prec, etp, s_init, r_init, params):
     class and not directly. It is kept in a separate file for less confusion
     if anyone wants to inspect the actual model routine.
     
-    The naming of the variables is kept as in the original publication.
+    The naming of the variables is kept as in the original publication [1].
     
     Args:
         prec: Numpy [t] array, which contains the precipitation input.
@@ -36,6 +36,10 @@ def run_gr4j(prec, etp, s_init, r_init, params):
             timestep.
         r_store: Numpy [t] array with the state of the r-storage of each
             timestep.
+            
+    [1] Perrin, Charles, Claude Michel, and Vazken Andréassian. "Improvement 
+    of a parsimonious model for streamflow simulation." Journal of hydrology 
+    279.1 (2003): 275-289.
         
     """
     # Number of simulation timesteps
