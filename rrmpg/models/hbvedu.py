@@ -198,7 +198,7 @@ class HBVEdu(BaseModel):
             s2 = np.zeros((prec.shape[0], params.size), np.float64)
         
         # call simulation function for each parameter set
-        for i in range(param.size):   
+        for i in range(params.size):   
             if return_storage:
                 # call the actual simulation function
                 (qsim[:,i], 

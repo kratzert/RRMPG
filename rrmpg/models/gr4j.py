@@ -160,7 +160,7 @@ class GR4J(BaseModel):
             r_store = np.zeros((prec.shape[0], params.size), np.float64)
             
         # call simulation function for each parameter set
-        for i in range(param.size):   
+        for i in range(params.size):   
             if return_storage:
                 qsim[:,i], s_store[:,i], r_store[:,i] = run_gr4j(prec, etp, 
                                                                  s_init, 

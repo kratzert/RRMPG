@@ -172,7 +172,7 @@ class ABCModel(BaseModel):
             storage = np.zeros((prec.shape[0], params.size), np.float64)
             
         # call simulation function for each parameter set
-        for i in range(param.size):  
+        for i in range(params.size):  
         # Call ABC-model simulation function and return results
             if return_storage:
                 qsim[:,i], storage[:,i] = run_abcmodel(prec, initial_state,

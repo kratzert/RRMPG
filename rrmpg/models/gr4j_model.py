@@ -26,9 +26,9 @@ def run_gr4j(prec, etp, s_init, r_init, params):
     x4 = params['x4']
     
     # initialize empty arrays for discharge and all storages
-    s_store = np.zeros(num_timesteps, np.float64)
-    r_store = np.zeros(num_timesteps, np.float64)
-    qsim = np.zeros(num_timesteps, np.float64)
+    s_store = np.zeros(num_timesteps+1, np.float64)
+    r_store = np.zeros(num_timesteps+1, np.float64)
+    qsim = np.zeros(num_timesteps+1, np.float64)
     
     # for clean array indexing, add 0 element at the 0th index of prec and 
     # etp so we start simulating at the index 1
