@@ -14,7 +14,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from rrmpg.models import ABCModel, HBVEdu, GR4J
+from rrmpg.models import ABCModel, HBVEdu, GR4J, Cemaneige
 from rrmpg.models.basemodel import BaseModel
 
 class TestBaseModelFunctions(unittest.TestCase):
@@ -162,3 +162,28 @@ class TestGR4J(unittest.TestCase):
                                    r_init=r_init, return_storage=False)
         self.assertTrue(np.allclose(qsim.flatten(), data.qsim_excel))
         
+class TestCemaneige(unittest.TestCase):
+    """Test the Cemaneige snow routine.
+    
+    This model is validated against the Excel implementation provided by the 
+    model authors.
+    """
+    
+    def setUp(self):
+        # parameters are taken from the excel sheet
+        params = {'CTG': 0.25, 'Kf': 3.74}
+        self.model = Cemaneige(params=params)
+        
+    def test_model_subclass_of_basemodel(self):
+        self.assertTrue(issubclass(self.model.__class__, BaseModel))  
+        
+    def test_simulate_compare_against_excel(self):
+        test_dir = os.path.dirname(__file__)
+        data_file = os.path.join(test_dir, 'data', 
+                                 'cemaneige_validation_data.csv')
+        df = pd.read_csv(data_file, sep=';')
+        qsim = self.model.simulate(df.precipitation, df.mean_temp, df.min_temp, 
+                                   df.max_temp, met_station_height=495, 
+                                   altitudes=[550, 620, 700, 785, 920])
+        self.assertTrue(np.allclose(qsim.flatten(), 
+                                    df.liquid_outflow.as_matrix()))
