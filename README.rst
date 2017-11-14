@@ -7,18 +7,6 @@ Official documentation can be found here: `http://rrmpg.readthedocs.io <http://r
 
 Read the :ref:`Idea section <idea>` for further information about the background and aim of this project.
 
-Road map (pull requests welcome!)
----------------------------------
-During the last days I was quite busy with my normal job and for the next weeks I'll be in holydays. But before I leave I want to write down my ideas for the further development of this project.
-
-- Add a routing class. This should will be one of the main focuses in the near future. I'm still undecided in how to build this class and I think this needs good planning. With this routing class it should be possible connect many lumped models (even different models for each sub-catchment since they all have a homogenious model class api) to an entire basin consisting of many sub-catchments. Since there are many ways, how the routing can be implemented, the question is if for each routing procedure one seperate class should be implemented (similar to the models with homogenious api) or one class, where the user can decide by an input argument which scheme to use. I tend to the first one, to be consistent with the model classes. There could be one base class for all routing classes as well, which implements the basic functionality, similar to the model base class.
-- Add more models to the library. This point needs no further explanation I guess. Next planned is the ``CemaNeige`` snow module, which can be coupled with the ``gr4j``.
-- Add example data to the code base. `here <http://tdwg.catchment.org/datasets.html>`_ are some hydrological datasets that could maybe be used. Also utility functions should be added to import the data and preprocess them correctly, so that the user has an easy start with this library.
-- Start writing model descriptions in the wiki section (or even better encourage colleagues to participate!).
-
-If you start working on any of these points I think it would be advisable to open an issue on github to let me know on what you are working. By this we can avoid to work on the same thing and better organize our energy.
-
-
 .. _idea:
 
 Idea

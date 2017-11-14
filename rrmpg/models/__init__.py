@@ -11,3 +11,4 @@
 from .abcmodel import ABCModel
 from .hbvedu import HBVEdu
 from .gr4j import GR4J
+from .cemaneige import Cemaneige
