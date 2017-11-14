@@ -9,6 +9,8 @@
 # see <https://opensource.org/licenses/MIT>
 """Interface to the GR4J hydrological model."""
 
+import numbers
+
 import numpy as np
 
 from scipy import optimize
@@ -33,8 +35,8 @@ class GR4J(BaseModel):
     279.1 (2003): 275-289.
     
     Args:
-        params: (optional) Dictonary containing all model parameters as a
-            seperate key/value pairs.
+        params: (optional) Dictionary containing all model parameters as a
+            separate key/value pairs.
             
     Raises:
         ValueError: If a dictionary of model parameters is passed but one of
@@ -61,8 +63,8 @@ class GR4J(BaseModel):
         """Initialize a GR4J model object.
         
         Args:
-            params: (optional) Dictonary containing all model parameters as a
-                seperate key/value pairs.
+            params: (optional) Dictionary containing all model parameters as a
+                separate key/value pairs.
                 
         Raises:
             ValueError: If a dictionary of model parameters is passed but one of
@@ -119,6 +121,12 @@ class GR4J(BaseModel):
             msg = ["The arrays of precipitation and pot. evapotranspiration,"
                    " must be of the same size."]
             raise RuntimeError("".join(msg))
+        
+        # validate initial state inputs
+        if not isinstance(s_init, numbers.Number):
+            raise TypeError("'s1_init' must be a Number.")
+        if not isinstance(r_init, numbers.Number):
+            raise TypeError("'r_init' must be a Number.")        
         
         # Make sure the intial storage values are floating point numbers
         s_init = float(s_init)

@@ -14,7 +14,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from rrmpg.models import ABCModel, HBVEdu, GR4J, Cemaneige
+from rrmpg.models import ABCModel, HBVEdu, GR4J, Cemaneige, CemaneigeGR4J
 from rrmpg.models.basemodel import BaseModel
 
 class TestBaseModelFunctions(unittest.TestCase):
@@ -187,3 +187,35 @@ class TestCemaneige(unittest.TestCase):
                                    altitudes=[550, 620, 700, 785, 920])
         self.assertTrue(np.allclose(qsim.flatten(), 
                                     df.liquid_outflow.as_matrix()))
+        
+class TestCemaneigeGR4J(unittest.TestCase):
+    """Test the Cemaneige + GR4J couple model.
+    
+    This model is validated against the Excel implementation provided by the 
+    model authors.
+    """
+    
+    def setUp(self):
+        # parameters are taken from the excel sheet
+        params = {'CTG': 0.25, 
+                  'Kf': 3.74,
+                  'x1': np.exp(5.25483021675164),
+                  'x2': np.sinh(1.58209470624126),
+                  'x3': np.exp(4.3853181982412),
+                  'x4': np.exp(0.954786342674327)+0.5}
+        self.model = CemaneigeGR4J(params=params)
+        
+    def test_model_subclass_of_basemodel(self):
+        self.assertTrue(issubclass(self.model.__class__, BaseModel))  
+        
+    def test_simulate_compare_against_excel(self):
+        test_dir = os.path.dirname(__file__)
+        data_file = os.path.join(test_dir, 'data', 
+                                 'cemaneigegr4j_validation_data.csv')
+        df = pd.read_csv(data_file, sep=';', index_col=0)
+        qsim = self.model.simulate(df.precipitation, df.mean_temp, df.min_temp, 
+                                   df.max_temp, df.pe, met_station_height=495, 
+                                   altitudes=[550, 620, 700, 785, 920],
+                                   s_init=0.6, r_init=0.7)
+        self.assertTrue(np.allclose(qsim.flatten(), 
+                                    df.qsim.as_matrix()))
