@@ -12,7 +12,7 @@ import numpy as np
 
 from numba import njit, prange
 
-@njit(parallel=True)
+@njit
 def run_cemaneige(prec, mean_temp, frac_solid_prec, snow_pack_init,
                   thermal_state_init, params):
     # Number of simulation timesteps

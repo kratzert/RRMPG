@@ -18,6 +18,7 @@ from numba import njit, prange
 from scipy import optimize
 
 from .basemodel import BaseModel
+from .abcmodel_model import run_abcmodel
 from ..utils.metrics import mse
 from ..utils.array_checks import check_for_negatives, validate_array_input
 
@@ -164,14 +165,25 @@ class ABCModel(BaseModel):
             # if only one parameter set is passed, expand dimensions to 1D
             if isinstance(params, np.void):
                 params = np.expand_dims(params, params.ndim)
-
-        # Call ABC-model simulation function and return results
+        
+        # Create output arrays
+        qsim = np.zeros((prec.shape[0], params.size), np.float64)
         if return_storage:
-            qsim, storage = _simulate_abc(params, prec, initial_state)
-            return qsim, storage
+            storage = np.zeros((prec.shape[0], params.size), np.float64)
+            
+        # call simulation function for each parameter set
+        for i in range(param.size):  
+        # Call ABC-model simulation function and return results
+            if return_storage:
+                qsim[:,i], storage[:,i] = run_abcmodel(prec, initial_state,
+                                                       params[i])
 
+            else:
+                qsim[:,i], _ = run_abcmodel(prec, initial_state, params[i])
+        
+        if return_storage:   
+            return qsim, storage
         else:
-            qsim, _ = _simulate_abc(params, prec, initial_state)
             return qsim
 
     def fit(self, qobs, prec, initial_state=0):
@@ -236,48 +248,10 @@ def _loss(X, *args):
     params['c'] = X[2]
 
     # Calculate the simulated streamflow
-    qsim, _ = _simulate_abc(params, prec, initial_state)
+    qsim, _ = run_abcmodel(prec, initial_state, params[0])
 
     # Calculate the Mean-Squared-Error as optimization criterion
     loss_value = mse(qobs, qsim)
 
     return loss_value
 
-
-@njit(parallel=True)
-def _simulate_abc(params, prec, initial_state):
-    """Run a simulation of the ABC-model for given input and param sets."""
-    # Number of simulation timesteps
-    num_timesteps = len(prec)
-    
-    # Initialize arrays for all simulations of all parameter sets.
-    qsim_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
-    storage_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
-    
-    # Process different param sets in parallel through 'prange'-loop
-    for i in prange(params.size):
-        # Unpack model parameters
-        a = params['a'][i]
-        b = params['b'][i]
-        c = params['c'][i]
-    
-        # Initialize array for the simulated stream flow and the storage
-        qsim = np.zeros(num_timesteps, np.float64)
-        storage = np.zeros(num_timesteps, np.float64)
-    
-        # Set the initial storage value
-        storage[0] = initial_state
-    
-        # Model simulation
-        for t in range(1, num_timesteps):
-            # Calculate the streamflow
-            qsim[t] = (1 - a - b) * prec[t] + c * storage[t-1]
-    
-            # Update the storage
-            storage[t] = (1 - c) * storage[t-1] + a * prec[t]
-
-        # copy results into arrays of all qsims and storages
-        qsim_all[:, i] = qsim
-        storage_all[:, i] = storage
-        
-    return qsim_all, storage_all

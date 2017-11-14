@@ -14,10 +14,10 @@ import numbers
 
 import numpy as np
 
-from numba import njit, prange
 from scipy import optimize
 
 from .basemodel import BaseModel
+from .hbvedu_model import run_hbvedu
 from ..utils.metrics import mse
 from ..utils.array_checks import check_for_negatives, validate_array_input
 
@@ -158,7 +158,7 @@ class HBVEdu(BaseModel):
                    " array must be of length 12."]
             raise RuntimeError("".join(msg))
 
-        # Check if entires of month array are between 1 and 12
+        # Check if entries of month array are between 1 and 12
         if (np.min(month) < 1) or (np.max(month) > 12):
             msg = ["The month array must be between an integer1 (Jan) and ",
                    "12 (Dec)."]
@@ -188,33 +188,46 @@ class HBVEdu(BaseModel):
             # if only one parameter set is passed, expand dimensions to 1D
             if isinstance(params, np.void):
                 params = np.expand_dims(params, params.ndim)
-            
-        if return_storage:
-            # call the actual simulation function
-            qsim, snow, soil, s1, s2 = _simulate_hbv_edu(temp, prec, month, 
-                                                         PE_m, T_m, snow_init,
-                                                         soil_init, s1_init, 
-                                                         s2_init, params)
-
-            # TODO: conversion from qobs in m³/s for different time resolutions
-            # At the moment expects daily input data
-            qsim = (qsim * self.area * 1000) / (24 * 60 * 60)
-            
-            return qsim, snow, soil, s1, s2
         
-        else:
-            # call the actual simulation function
-            qsim, _, _, _, _ = _simulate_hbv_edu(temp, prec, month, PE_m, T_m, 
-                                                 snow_init, soil_init, s1_init, 
-                                                 s2_init, params)
-
-            # TODO: conversion from qobs in m³/s for different time resolutions
-            # At the moment expects daily input data
-            qsim = (qsim * self.area * 1000) / (24 * 60 * 60)
+        # Create output arrays
+        qsim = np.zeros((prec.shape[0], params.size), np.float64)
+        if return_storage:
+            snow = np.zeros((prec.shape[0], params.size), np.float64)
+            soil = np.zeros((prec.shape[0], params.size), np.float64)
+            s1 = np.zeros((prec.shape[0], params.size), np.float64)
+            s2 = np.zeros((prec.shape[0], params.size), np.float64)
+        
+        # call simulation function for each parameter set
+        for i in range(param.size):   
+            if return_storage:
+                # call the actual simulation function
+                (qsim[:,i], 
+                 snow[:,i], 
+                 soil[:,i], 
+                 s1[:,i], 
+                 s2[:,i]) = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init,
+                                       soil_init, s1_init, s2_init, params)
+    
+                # TODO: conversion from qobs in m³/s for different time resolutions
+                # At the moment expects daily input data
+                qsim[:,i] = (qsim[:,i] * self.area * 1000) / (24 * 60 * 60)
+                
+                
             
+            else:
+                # call the actual simulation function
+                qsim[:,i], _, _, _, _ = run_hbvedu(temp, prec, month, PE_m, T_m, 
+                                                   snow_init, soil_init, 
+                                                   s1_init, s2_init, params[i])
+    
+                # TODO: conversion from qobs in m³/s for different time resolutions
+                # At the moment expects daily input data
+                qsim = (qsim * self.area * 1000) / (24 * 60 * 60)
+        
+        if return_storage:
+            return qsim, snow, soil, s1, s2
+        else:
             return qsim
-
-        return qsim
 
     def fit(self, qobs, temp, prec, month, PE_m, T_m, snow_init=0.,
             soil_init=0., s1_init=0., s2_init=0.):
@@ -272,7 +285,7 @@ class HBVEdu(BaseModel):
                    " array must be of length 12."]
             raise RuntimeError("".join(msg))
 
-        # Check if entires of month array are between 1 and 12
+        # Check if entries of month array are between 1 and 12
         if (np.min(month) < 1) or (np.max(month) > 12):
             msg = ["The month array must be between an integer1 (Jan) and ",
                    "12 (Dec)."]
@@ -329,8 +342,8 @@ def _loss(X, *args):
     params['L'] = X[10]
 
     # Calculate simulated streamflow
-    qsim,_,_,_,_ = _simulate_hbv_edu(temp, prec, month, PE_m, T_m, snow_init,
-                                     soil_init, s1_init, s2_init, params)
+    qsim,_,_,_,_ = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init,
+                              soil_init, s1_init, s2_init, params[0])
     
     # transform discharge to m³/s
     qsim = (qsim * area * 1000) / (24 * 60 * 60)
@@ -339,101 +352,3 @@ def _loss(X, *args):
     loss_value = mse(qobs, qsim)
 
     return loss_value
-
-
-@njit(parallel=True)
-def _simulate_hbv_edu(temp, prec, month, PE_m, T_m, snow_init, soil_init,
-                      s1_init, s2_init, params):
-    """Run the educational HBV model for given inputs and model parameters."""
-    # Number of simulation timesteps
-    num_timesteps = len(prec)
-    
-    # Initialize arrays for all simulations of all parameter sets.
-    qsim_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
-    snow_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
-    soil_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
-    s1_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
-    s2_all = np.zeros((num_timesteps, params.size), dtype=np.float64)
-    
-    # Process different param sets in parallel through 'prange'-loop
-    for i in prange(params.size):    
-        # Unpack the model parameters
-        T_t = params['T_t'][i]
-        DD = params['DD'][i]
-        FC = params['FC'][i]
-        Beta = params['Beta'][i]
-        C = params['C'][i]
-        PWP = params['PWP'][i]
-        K_0 = params['K_0'][i]
-        K_1 = params['K_1'][i]
-        K_2 = params['K_2'][i]
-        K_p = params['K_p'][i]
-        L = params['L'][i]
-    
-        # initialize empty arrays for all reservoirs and outflow
-        snow = np.zeros(num_timesteps, np.float64)
-        soil = np.zeros(num_timesteps, np.float64)
-        s1 = np.zeros(num_timesteps, np.float64)
-        s2 = np.zeros(num_timesteps, np.float64)
-        qsim = np.zeros(num_timesteps, np.float64)
-    
-        # set initial values
-        snow[0] = snow_init
-        soil[0] = soil_init
-        s1[0] = s1_init
-        s2[0] = s2_init
-    
-        # Start the model simulation as loop over all timesteps
-        for t in range(1, num_timesteps):
-    
-            # Check if temperature is below threshold
-            if temp[t] < T_t:
-                # accumulate snow
-                snow[t] = snow[t-1] + prec[t]
-                # no liquid water
-                liquid_water = 0
-            else:
-                # melt snow
-                snow[t] = max(0, snow[t-1] - DD * (temp[t] - T_t))
-                # add melted snow to available liquid water
-                liquid_water = prec[t] + min(snow[t-1], DD * (temp[t] - T_t))
-    
-            # calculate the effective precipitation
-            prec_eff = liquid_water * (soil[t-1] / FC) ** Beta
-    
-            # Calculate the potential evapotranspiration
-            pe = (1 + C * (temp[t] - T_m[month[t]])) * PE_m[month[t]]
-    
-            # Calculate the actual evapotranspiration
-            if soil[t-1] > PWP:
-                ea = pe
-            else:
-                ea = pe * (soil[t-1] / PWP)
-    
-            # calculate the actual level of the soil reservoir
-            soil[t] = soil[t-1] + liquid_water - prec_eff - ea
-    
-            # calculate the actual level of the near surface flow reservoir
-            s1[t] = (s1[t-1]
-                     + prec_eff
-                     - max(0, s1[t-1] - L) * K_0
-                     - s1[t-1] * K_1
-                     - s1[t-1] * K_p)
-    
-            # calculate the actual level of the base flow reservoir
-            s2[t] = (s2[t-1]
-                     + s1[t-1] * K_p
-                     - s2[t-1] * K_2)
-    
-            qsim[t] = ((max(0, s1[t-1] - L)) * K_0
-                       + s1[t] * K_1
-                       + s2[t] * K_2)
-            
-        # copy results into arrays of all qsims and storages
-        qsim_all[:, i] = qsim
-        snow_all[:, i] = snow
-        soil_all[:, i] = soil
-        s1_all[:, i] = s1
-        s2_all[:, i] = s2
-    
-    return qsim_all, snow_all, soil_all, s1_all, s2_all

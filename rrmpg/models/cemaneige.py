@@ -223,26 +223,25 @@ class Cemaneige(BaseModel):
             eTG = np.zeros((prec.shape[0], len(altitudes), params.size), 
                            np.float64)
         
-        for i in range(params.size):
-            
+        # Call simulation function for each parameter set
+        for i in range(params.size):    
             if return_storages:
-                
                 (outflow[:, i], 
                  G[:, :, i], 
                  eTG[:, :, i]) = run_cemaneige(prec, mean_temp, frac_solid_prec,
                                                snow_pack_init, 
                                                thermal_state_init, params[i])
                 
-                return outflow, G, eTG
-                
             else:
-                
                 outflow[:, i], _, _ = run_cemaneige(prec, mean_temp,  
                                                     frac_solid_prec, 
                                                     snow_pack_init, 
                                                     thermal_state_init, 
                                                     params[i])            
             
+        if return_storages:
+            return outflow, G, eTG
+        else:
             return outflow
         
     def fit(self, obs, prec, mean_temp, min_temp, max_temp, met_station_height,
@@ -378,7 +377,8 @@ def _loss(X, *args):
     
     # Calcuate simulated outflow
     outflow, _, _ = run_cemaneige(prec, mean_temp, frac_solid_prec, 
-                                  snow_pack_init, thermal_state_init, params)
+                                  snow_pack_init, thermal_state_init, 
+                                  params[0])
     
     # calculate loss as the mean squared error
     loss_value = mse(obs, outflow)
