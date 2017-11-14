@@ -147,5 +147,5 @@ Class documentation
 """""""""""""""""""
 
 .. autoclass:: rrmpg.models.Cemaneige
-:members:
-:inherited-members:
+  :members:
+  :inherited-members:
