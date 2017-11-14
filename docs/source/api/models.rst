@@ -149,3 +149,45 @@ Class documentation
 .. autoclass:: rrmpg.models.Cemaneige
   :members:
   :inherited-members:
+
+CemaneigeGR4J
+-------------
+This model couples the Cemaneige snow routine with the GR4J model into one model.
+
+.. code-block:: none
+
+  Valéry, A. "Modélisation précipitations – débit sous influence nivale.
+  Élaboration d’un module neige et évaluation sur 380 bassins versants".
+  PhD thesis, Cemagref (Antony), AgroParisTech (Paris), 405 pp. (2010)
+
+Explanation of the model parameters:
+""""""""""""""""""""""""""""""""""""
+
+* CTG: snow-pack inertia factor
+* Kf: day-degree factor
+* x1: maximum capacity of the production store [mm]
+* x2: groundwater exchange coefficient [mm]
+* x3: one day ahead maximum capacity of the routing store [mm]
+* x4: time base of the unit hydrograph UH1 [days]
+
+
+Model inputs for simulation:
+""""""""""""""""""""""""""""
+
+* prec: Array of daily precipitation sum [mm]
+* mean_temp: Array of the mean temperature [C]
+* min_temp: Array of the minimum temperature [C]
+* max_temp: Array of the maximum temperature [C]
+* etp: Array mean potential evapotranspiration [mm]
+* met_station_height: Height of the meteorological station [m]. Needed to
+  calculate the fraction of solid precipitation and optionally for the
+  extrapolation of the meteorological inputs.
+* altitudes: (optionally) List of the median elevation of each elevation layer.
+
+
+Class documentation
+"""""""""""""""""""
+
+.. autoclass:: rrmpg.models.CemaneigeGR4J
+  :members:
+  :inherited-members:

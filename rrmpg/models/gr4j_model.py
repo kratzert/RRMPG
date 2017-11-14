@@ -12,8 +12,7 @@ import numpy as np
 
 from numba import njit
 
-
-@njit 
+@njit
 def run_gr4j(prec, etp, s_init, r_init, params):
     """Implementation of the GR4J model.
     
