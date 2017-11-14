@@ -111,3 +111,41 @@ Class documentation
 .. autoclass:: rrmpg.models.GR4J
   :members:
   :inherited-members:
+
+
+Cemaneige
+-------------
+Implementation of the model described in:
+
+.. code-block:: none
+
+  Valéry, A. "Modélisation précipitations – débit sous influence nivale.
+  Élaboration d’un module neige et évaluation sur 380 bassins versants".
+  PhD thesis, Cemagref (Antony), AgroParisTech (Paris), 405 pp. (2010)
+
+Explanation of the model parameters:
+""""""""""""""""""""""""""""""""""""
+
+* CTG: snow-pack inertia factor
+* Kf: day-degree factor
+
+
+Model inputs for simulation:
+""""""""""""""""""""""""""""
+
+* prec: Array of daily precipitation sum [mm]
+* mean_temp: Array of the mean temperature [C]
+* min_temp: Array of the minimum temperature [C]
+* max_temp: Array of the maximum temperature [C]
+* met_station_height: Height of the meteorological station [m]. Needed to
+  calculate the fraction of solid precipitation and optionally for the
+  extrapolation of the meteorological inputs.
+* altitudes: (optionally) List of the median elevation of each elevation layer.
+
+
+Class documentation
+"""""""""""""""""""
+
+.. autoclass:: rrmpg.models.Cemaneige
+:members:
+:inherited-members:
