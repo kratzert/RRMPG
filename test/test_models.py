@@ -14,13 +14,13 @@ import os
 import numpy as np
 import pandas as pd
 
-from rrmpg.models import ABCModel, HBVEdu, GR4J
+from rrmpg.models import ABCModel, HBVEdu, GR4J, Cemaneige, CemaneigeGR4J
 from rrmpg.models.basemodel import BaseModel
 
 class TestBaseModelFunctions(unittest.TestCase):
     """Test all functions implemented in the BaseModel.
     
-    These will not be test for all models, but one as an example for one of 
+    These will not be tested for all models, but one as an example for one of 
     the models.
     """
     
@@ -55,16 +55,26 @@ class TestBaseModelFunctions(unittest.TestCase):
         params = self.model.get_random_params()
         bnds = self.default_bounds
         
-        for p, val in params.items():
+        for p in self.param_names:
             msg = ["Failed for param: '{}', which has a ".format(p),
-                   "a value of {}, but lower bounds ".format(val),
+                   "a value of {}, but lower bounds ".format(params[p][0]),
                    "is {} and upper bound {}.".format(bnds[p][0], bnds[p][1])]
-            self.assertTrue(bnds[p][0] <= val <= bnds[p][1], "".join(msg))
-            
+            self.assertTrue(bnds[p][0] <= params[p][0] <= bnds[p][1], 
+                            "".join(msg))
+    
+    def test_get_multiple_random_param_sets(self):
+        num = 24
+        params = self.model.get_random_params(num=num)
+        self.assertEqual(num, params.size)
+              
     def test_set_params(self):
         rand_params = self.model.get_random_params()
-        self.model.set_params(rand_params)
-        self.assertDictEqual(rand_params, self.model.get_params()) 
+        # convert rand_params array to dict:
+        params = {}
+        for p in self.param_names:
+            params[p] = rand_params[p][0]
+        self.model.set_params(params)
+        self.assertDictEqual(params, self.model.get_params()) 
         
         
 class TestABCModel(unittest.TestCase):
@@ -150,5 +160,62 @@ class TestGR4J(unittest.TestCase):
         data = pd.read_csv(data_file, sep=',')
         qsim = self.model.simulate(data.prec, data.etp, s_init=s_init, 
                                    r_init=r_init, return_storage=False)
-        self.assertTrue(np.allclose(qsim, data.qsim_excel))
+        self.assertTrue(np.allclose(qsim.flatten(), data.qsim_excel))
         
+class TestCemaneige(unittest.TestCase):
+    """Test the Cemaneige snow routine.
+    
+    This model is validated against the Excel implementation provided by the 
+    model authors.
+    """
+    
+    def setUp(self):
+        # parameters are taken from the excel sheet
+        params = {'CTG': 0.25, 'Kf': 3.74}
+        self.model = Cemaneige(params=params)
+        
+    def test_model_subclass_of_basemodel(self):
+        self.assertTrue(issubclass(self.model.__class__, BaseModel))  
+        
+    def test_simulate_compare_against_excel(self):
+        test_dir = os.path.dirname(__file__)
+        data_file = os.path.join(test_dir, 'data', 
+                                 'cemaneige_validation_data.csv')
+        df = pd.read_csv(data_file, sep=';')
+        qsim = self.model.simulate(df.precipitation, df.mean_temp, df.min_temp, 
+                                   df.max_temp, met_station_height=495, 
+                                   altitudes=[550, 620, 700, 785, 920])
+        self.assertTrue(np.allclose(qsim.flatten(), 
+                                    df.liquid_outflow.as_matrix()))
+        
+class TestCemaneigeGR4J(unittest.TestCase):
+    """Test the Cemaneige + GR4J couple model.
+    
+    This model is validated against the Excel implementation provided by the 
+    model authors.
+    """
+    
+    def setUp(self):
+        # parameters are taken from the excel sheet
+        params = {'CTG': 0.25, 
+                  'Kf': 3.74,
+                  'x1': np.exp(5.25483021675164),
+                  'x2': np.sinh(1.58209470624126),
+                  'x3': np.exp(4.3853181982412),
+                  'x4': np.exp(0.954786342674327)+0.5}
+        self.model = CemaneigeGR4J(params=params)
+        
+    def test_model_subclass_of_basemodel(self):
+        self.assertTrue(issubclass(self.model.__class__, BaseModel))  
+        
+    def test_simulate_compare_against_excel(self):
+        test_dir = os.path.dirname(__file__)
+        data_file = os.path.join(test_dir, 'data', 
+                                 'cemaneigegr4j_validation_data.csv')
+        df = pd.read_csv(data_file, sep=';', index_col=0)
+        qsim = self.model.simulate(df.precipitation, df.mean_temp, df.min_temp, 
+                                   df.max_temp, df.pe, met_station_height=495, 
+                                   altitudes=[550, 620, 700, 785, 920],
+                                   s_init=0.6, r_init=0.7)
+        self.assertTrue(np.allclose(qsim.flatten(), 
+                                    df.qsim.as_matrix()))

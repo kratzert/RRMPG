@@ -3,7 +3,11 @@ Introduction
 
 This repository is a work in progress repository.
 
-Documentation can be found here: `http://rrmpg.readthedocs.io <http://rrmpg.readthedocs.io>`_
+Official documentation can be found here: `http://rrmpg.readthedocs.io <http://rrmpg.readthedocs.io>`_
+
+Read the :ref:`Idea section <idea>` for further information about the background and aim of this project.
+
+.. _idea:
 
 Idea
 ----
@@ -24,22 +28,18 @@ First performance comparisons between Fortran implementations and numba optimize
 **Summary**: The idea of this code repository is to provide fast (roughly the speed of Fortan) implementations of hydrological models in Python to make it easier to play and experiment with rainfall-runoff models.
 
 
-What's next?
-------------
-
-During the next days/weeks I'll start to add more and more content to this repository. If you have any questions feel free to ask.
-
-
 You want to contribute?
 -----------------------
 
 At the moment I'm looking for a selection of hydrological models I'll implement in Python. If you want to see any (your?) model in this project, feel free to contact me.
+There is also a `How to contribute section <http://rrmpg.readthedocs.io/en/latest/contribution.html>`_ at the official documentation, were you can read more on the various ways you can contribute to this repository.
 
 Contributors
 ------------
 I'll add later a better looking section to the official documentation. For now I list everybody, who contributed to this repository here:
 
-- `Ondřej Čertík <https://github.com/certik>`_ with `pull request #3 <https://github.com/kratzert/RRMPG/pull/3>`_: Optimized Fortran code and compilation procedure for fair speed comparision.
+- `Ondřej Čertík <https://github.com/certik>`_ with pull request `#3 <https://github.com/kratzert/RRMPG/pull/3>`_: Optimized Fortran code and compilation procedure for fair speed comparision.
+- `Daniel Klotz <https://github.com/danklotz>`_ with pull request `#4 <https://github.com/kratzert/RRMPG/pull/4>`_ and `#5 <https://github.com/kratzert/RRMPG/pull/4>`_: Both spell corrections.
 
 Contact
 -------

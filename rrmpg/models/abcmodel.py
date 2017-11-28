@@ -8,22 +8,22 @@
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
 
-"""Implementation of the ABC-Model."""
+"""Interface to the the ABC-Model."""
 
 import numbers
 
 import numpy as np
 
-from numba import njit
 from scipy import optimize
 
 from .basemodel import BaseModel
+from .abcmodel_model import run_abcmodel
 from ..utils.metrics import mse
 from ..utils.array_checks import check_for_negatives, validate_array_input
 
 
 class ABCModel(BaseModel):
-    """Implementation of the ABC-Model.
+    """Interface to the the ABC-Model.
 
     This model implements the classical ABC-Model. It was developed for
     educational purpose and represents a simple linear model.
@@ -67,37 +67,43 @@ class ABCModel(BaseModel):
         """
         super().__init__(params=params)
         
-    def get_random_params(self):
-        """Generate a random set of model parameters for the ABC-model
+    def get_random_params(self, num=1):
+        """Generate random sets of model parameters for the ABC-model.
 
         The ABC-model has specific parameter constraints, therefore we will 
         overwrite the function of the BaseModel, to generated random model
         parameters, that satisfy the ABC-Model constraints.
 
+        Args:
+            num: (optional) Integer, specifying the number of parameter sets,
+                that will be generated. Default is 1.
+                
         Returns:
             A dict containing one key/value pair for each model parameter.
 
         """
-        params = {}
+        params = np.zeros(num, dtype=self._dtype)
         
         # sample parameter 'a' between the bounds [0,1]
-        params['a'] = np.random.uniform(low=self._default_bounds['a'][0],
-                                        high=self._default_bounds['a'][1],
-                                        size=1)[0]
+        params['a'][:] = np.random.uniform(low=self._default_bounds['a'][0],
+                                           high=self._default_bounds['a'][1],
+                                           size=num)
+                # parameter 'c' must be between [0,1] and has no further constraints
+        params['c'][:] = np.random.uniform(low=self._default_bounds['c'][0],
+                                           high=self._default_bounds['c'][1],
+                                           size=num)
         
-        # sample parameter 'b' between lower bound 0 and upper bound (1 - a)
-        params['b'] = np.random.uniform(low=self._default_bounds['b'][0],
-                                        high=(1-params['a']),
-                                        size=1)[0]
-        
-        # parameter 'c' must be between [0,1] and has no further constraints
-        params['c'] = np.random.uniform(low=self._default_bounds['c'][0],
-                                        high=self._default_bounds['c'][1],
-                                        size=1)[0]
+        # Parameter b is constraint by its corresponding a parameter.
+        for i in range(num):
+            # sample parameter 'b' between lower bound 0 and upper bnd (1 - a)
+            params['b'][i] = np.random.uniform(low=self._default_bounds['b'][0],
+                                               high=(1-params['a'][i]),
+                                               size=1)
         
         return params
 
-    def simulate(self, prec, initial_state=0, return_storage=False):
+    def simulate(self, prec, initial_state=0, return_storage=False, 
+                 params=None):
         """Simulate the streamflow for the passed precipitation.
 
         This function makes sanity checks on the input and then calls the
@@ -109,6 +115,10 @@ class ABCModel(BaseModel):
             initial_state: (optional) Initial value for the storage.
             return_storage: (optional) Boolean, wether or not to return the
                 simulated storage for each timestep.
+            params: (optional) Numpy array of parameter sets, that will be 
+                evaluated a once in parallel. Must be of the models own custom
+                data type. If nothing is passed, the parameters, stored in the 
+                model object, will be used.
 
         Returns:
             An array with the simulated stream flow for each timestep and
@@ -138,19 +148,41 @@ class ABCModel(BaseModel):
         # Validation check of the return_storage
         if not isinstance(return_storage, bool):
             raise TypeError("The return_storage arg must be a boolean.")
-
-        # Create custom numpy data structure containing the model parameters
-        params = np.zeros(1, dtype=self._dtype)
-        for param in self._param_list:
-            params[param] = getattr(self, param)
-
-        # Call ABC-model simulation function and return results
-        if return_storage:
-            qsim, storage = _simulate_abc(params, prec, initial_state)
-            return qsim, storage
-
+        
+        # If no parameters were passed, prepare array w. params from attributes
+        if params is None:
+            params = np.zeros(1, dtype=self._dtype)
+            for param in self._param_list:
+                params[param] = getattr(self, param)
+        
+        # Else, check the param input for correct datatype
         else:
-            qsim, _ = _simulate_abc(params, prec, initial_state)
+            if params.dtype != self._dtype:
+                msg = ["The model parameters must be a numpy array of the ",
+                       "models own custom data type."]
+                raise TypeError("".join(msg))
+            # if only one parameter set is passed, expand dimensions to 1D
+            if isinstance(params, np.void):
+                params = np.expand_dims(params, params.ndim)
+        
+        # Create output arrays
+        qsim = np.zeros((prec.shape[0], params.size), np.float64)
+        if return_storage:
+            storage = np.zeros((prec.shape[0], params.size), np.float64)
+            
+        # call simulation function for each parameter set
+        for i in range(params.size):  
+        # Call ABC-model simulation function and return results
+            if return_storage:
+                qsim[:,i], storage[:,i] = run_abcmodel(prec, initial_state,
+                                                       params[i])
+
+            else:
+                qsim[:,i], _ = run_abcmodel(prec, initial_state, params[i])
+        
+        if return_storage:   
+            return qsim, storage
+        else:
             return qsim
 
     def fit(self, qobs, prec, initial_state=0):
@@ -215,38 +247,10 @@ def _loss(X, *args):
     params['c'] = X[2]
 
     # Calculate the simulated streamflow
-    qsim, _ = _simulate_abc(params, prec, initial_state)
+    qsim, _ = run_abcmodel(prec, initial_state, params[0])
 
     # Calculate the Mean-Squared-Error as optimization criterion
     loss_value = mse(qobs, qsim)
 
     return loss_value
 
-
-@njit
-def _simulate_abc(params, prec, initial_state):
-    """Run a simulation of the ABC-model for given input and params."""
-    # Unpack model parameters
-    a = params['a'][0]
-    b = params['b'][0]
-    c = params['c'][0]
-
-    # Number of simulation timesteps
-    num_timesteps = len(prec)
-
-    # Initialize array for the simulated stream flow and the storage
-    qsim = np.zeros(num_timesteps, np.float64)
-    storage = np.zeros(num_timesteps, np.float64)
-
-    # Set the initial storage value
-    storage[0] = initial_state
-
-    # Model simulation
-    for t in range(1, num_timesteps):
-        # Calculate the streamflow
-        qsim[t] = (1 - a - b) * prec[t] + c * storage[t-1]
-
-        # Update the storage
-        storage[t] = (1 - c) * storage[t-1] + a * prec[t]
-
-    return qsim, storage

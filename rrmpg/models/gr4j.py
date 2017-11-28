@@ -7,23 +7,25 @@
 #
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
-"""Implementation of the GR4J hydrological model."""
+"""Interface to the GR4J hydrological model."""
+
+import numbers
 
 import numpy as np
 
-from numba import njit
 from scipy import optimize
 
 from .basemodel import BaseModel
+from .gr4j_model import run_gr4j
 from ..utils.array_checks import validate_array_input, check_for_negatives
 from ..utils.metrics import mse
 
 
 class GR4J(BaseModel):
-    """Implementation of the GR4J hydrological model.
+    """Interface to the GR4J hydrological model.
     
-    This class implements the GR4J model, as presented in [1]. This model 
-    should only be used with daily data.
+    This class builds an interface to the GR4J model, as presented in [1]. 
+    This model should only be used with daily data.
     
     If no model parameters are passed upon initialization, generates random
     parameter set.
@@ -33,8 +35,8 @@ class GR4J(BaseModel):
     279.1 (2003): 275-289.
     
     Args:
-        params: (optional) Dictonary containing all model parameters as a
-            seperate key/value pairs.
+        params: (optional) Dictionary containing all model parameters as a
+            separate key/value pairs.
             
     Raises:
         ValueError: If a dictionary of model parameters is passed but one of
@@ -61,23 +63,22 @@ class GR4J(BaseModel):
         """Initialize a GR4J model object.
         
         Args:
-            params: (optional) Dictonary containing all model parameters as a
-                seperate key/value pairs.
+            params: (optional) Dictionary containing all model parameters as a
+                separate key/value pairs.
                 
         Raises:
             ValueError: If a dictionary of model parameters is passed but one of
-                the parameters is missing.
+                of the parameters is missing.
                     
         """
         super().__init__(params=params)
         
-    def simulate(self, prec, etp, s_init=0., r_init=0., return_storage=False):
+    def simulate(self, prec, etp, s_init=0., r_init=0., return_storage=False,
+                 params=None):
         """Simulate rainfall-runoff process for given input.
         
         This function bundles the model parameters and validates the 
-        meteorological inputs, then calls the optimized model routine. Due to 
-        restrictions with the use of Numba, this routine is kept outside 
-        of this model class.
+        meteorological inputs, then calls the optimized model routine.
         The meteorological inputs can be either list, numpy arrays or pandas
         Series.
         
@@ -90,6 +91,10 @@ class GR4J(BaseModel):
                 of x3.
             return_stprage: (optional) Boolean, indicating if the model 
                 storages should also be returned.
+            params: (optional) Numpy array of parameter sets, that will be 
+                evaluated a once in parallel. Must be of the models own custom
+                data type. If nothing is passed, the parameters, stored in the 
+                model object, will be used.            
                 
         Returns:
             An array with the simulated streamflow and optional one array for 
@@ -117,6 +122,12 @@ class GR4J(BaseModel):
                    " must be of the same size."]
             raise RuntimeError("".join(msg))
         
+        # validate initial state inputs
+        if not isinstance(s_init, numbers.Number):
+            raise TypeError("'s1_init' must be a Number.")
+        if not isinstance(r_init, numbers.Number):
+            raise TypeError("'r_init' must be a Number.")        
+        
         # Make sure the intial storage values are floating point numbers
         s_init = float(s_init)
         r_init = float(r_init)
@@ -132,19 +143,43 @@ class GR4J(BaseModel):
                    " range [0,1]."]
             raise ValueError("".join(msg))
         
-        # bundle model parameters in custom numpy array
-        model_params = np.zeros(1, dtype=self._dtype)
-        for param in self._param_list:
-            model_params[param] = getattr(self, param)
+        # If no parameters were passed, prepare array w. params from attributes
+        if params is None:
+            params = np.zeros(1, dtype=self._dtype)
+            for param in self._param_list:
+                params[param] = getattr(self, param)
+        
+        # Else, check the param input for correct datatype
+        else:
+            if params.dtype != self._dtype:
+                msg = ["The model parameters must be a numpy array of the ",
+                       "models own custom data type."]
+                raise TypeError("".join(msg))
+            # if only one parameter set is passed, expand dimensions to 1D
+            if isinstance(params, np.void):
+                params = np.expand_dims(params, params.ndim)
+        
+        # Create output arrays
+        qsim = np.zeros((prec.shape[0], params.size), np.float64)
+        if return_storage:
+            s_store = np.zeros((prec.shape[0], params.size), np.float64)
+            r_store = np.zeros((prec.shape[0], params.size), np.float64)
+            
+        # call simulation function for each parameter set
+        for i in range(params.size):   
+            if return_storage:
+                qsim[:,i], s_store[:,i], r_store[:,i] = run_gr4j(prec, etp, 
+                                                                 s_init, 
+                                                                 r_init, 
+                                                                 params[i])
+            
+            else:
+                qsim[:,i], _, _ = run_gr4j(prec, etp, s_init, r_init, params[i])
+                return qsim
             
         if return_storage:
-            qsim, s_store, r_store = _simulate_gr4j(prec, etp, s_init, 
-                                                    r_init, model_params)
             return qsim, s_store, r_store
-        
         else:
-            qsim, _, _ = _simulate_gr4j(prec, etp, s_init, r_init, 
-                                        model_params)
             return qsim
         
     def fit(self, qobs, prec, etp, s_init=0., r_init=0.):
@@ -232,7 +267,7 @@ def _loss(X, *args):
     params['x4'] = X[3]
     
     # Calculate simulated streamflow
-    qsim, _, _ = _simulate_gr4j(prec, etp, s_init, r_init, params)
+    qsim, _, _ = run_gr4j(prec, etp, s_init, r_init, params[0])
     
     # Calculate the loss of the fit as the mean squared error
     loss_value = mse(qobs, qsim)
@@ -240,158 +275,3 @@ def _loss(X, *args):
     return loss_value
 
   
-@njit
-def _s_curve1(t, x4):
-    """Calculate the s-curve of the unit-hydrograph 1.
-    
-    Args:
-        t: timestep
-        x4: model parameter x4 of the gr4j model.
-        
-    """
-    if t <= 0:
-        return 0.
-    elif t < x4:
-        return (t / x4)**2.5
-    else:
-        return 1.
-
-
-@njit
-def _s_curve2(t, x4): 
-    """Calculate the s-curve of the unit-hydrograph 2.
-    
-    Args:
-        t: timestep
-        x4: model parameter x4 of the gr4j model.
-        
-    """
-    if t <= 0:
-        return 0.
-    elif t <= x4:
-        return 0.5 * ((t / x4) ** 2.5)
-    elif t < 2*x4:
-        return 1 - 0.5 * ((2 - t / x4) ** 2.5)
-    else:
-        return 1.
-
-@njit        
-def _simulate_gr4j(prec, etp, s_init, r_init, model_params):
-    """Actual run function of the gr4j hydrological model."""
-    # Unpack the model parameters
-    x1 = model_params['x1'][0]
-    x2 = model_params['x2'][0]
-    x3 = model_params['x3'][0]
-    x4 = model_params['x4'][0]
-    
-    # get the number of simulation timesteps
-    num_timesteps = len(prec)
-    
-    # initialize empty arrays with one additional timestep, since the 0th will
-    # be used as intial state and the first simulated is the array entry 1
-    s_store = np.zeros(num_timesteps + 1, np.float64)
-    r_store = np.zeros(num_timesteps + 1, np.float64)
-    qsim = np.zeros(num_timesteps + 1, np.float64)
-    
-    # for clean array indexing, add 0 element at the 0th index of prec and etp
-    # so we start simulating at the index 1
-    prec = np.concatenate((np.zeros(1), prec))
-    etp = np.concatenate((np.zeros(1), etp))
-    
-    # set initial values
-    s_store[0] = s_init * x1
-    r_store[0] = r_init * x3
-    
-    # calculate number of unit hydrograph ordinates
-    num_uh1 = int(np.ceil(x4))
-    num_uh2 = int(np.ceil(2*x4 + 1))
-    
-    # calculate the ordinates of both unit-hydrographs (eq. 16 & 17)
-    uh1_ordinates = np.zeros(num_uh1, np.float64)
-    uh2_ordinates = np.zeros(num_uh2, np.float64)
-    
-    for j in range(1, num_uh1 + 1):
-        uh1_ordinates[j - 1] = _s_curve1(j, x4) - _s_curve1(j - 1, x4)
-        
-    for j in range(1, num_uh2 + 1):
-        uh2_ordinates[j - 1] = _s_curve2(j, x4) - _s_curve2(j - 1, x4)
-    
-    # empty arrays to store the rain distributed through the unit hydrographs
-    uh1 = np.zeros(num_uh1, np.float64)
-    uh2 = np.zeros(num_uh2, np.float64)
-    
-    # Start the model simulation loop
-    for t in range(1, num_timesteps+1):
-        
-        # Calculate netto precipitation and evaporation
-        if prec[t] >= etp[t]:
-            p_n = prec[t] - etp[t]
-            pe_n = 0
-        
-            # calculate fraction of netto precipitation that fills production 
-            # store (eq. 3)
-            p_s = ((x1 * (1 - (s_store[t-1] / x1)**2) * np.tanh(p_n/x1)) /
-                   (1 + s_store[t-1] / x1 * np.tanh(p_n / x1)))
-            
-            # no evaporation from production store
-            e_s = 0   
-        
-        else:
-            p_n = 0
-            pe_n = etp[t] - prec[t]
-            
-            # calculate the fraction of the evaporation that will evaporate 
-            # from the production store (eq. 4)
-            e_s = ((s_store[t-1] * (2 - s_store[t-1]/x1) * np.tanh(pe_n/x1)) /
-                   (1 + (1 - s_store[t-1] / x1) * np.tanh(pe_n / x1)))
-            
-            # no rain that is allocation to the production store
-            p_s = 0
-            
-        # Calculate the new storage content
-        s_store[t] = s_store[t-1] - e_s + p_s
-        
-        # calculate percolation from actual storage level
-        perc = s_store[t] * (1 - (1 + (4 / 9 * s_store[t] / x1)**4)**(-0.25))
-        
-        # final update of the production store for this timestep
-        s_store[t] = s_store[t] - perc
-        
-        # total quantity of water that reaches the routing
-        p_r = perc + (p_n - p_s)
-        
-        # split this water quantity by .9/.1 for different routing (UH1 & UH2)
-        p_r_uh1 = 0.9 * p_r 
-        p_r_uh2 = 0.1 * p_r
-        
-        # update the state of the rain distributed through the unit hydrographs
-        for j in range(0, num_uh1 - 1):
-            uh1[j] = uh1[j + 1] + uh1_ordinates[j] * p_r_uh1
-        uh1[-1] = uh1_ordinates[-1] * p_r_uh1
-        
-        for j in range(0, num_uh2 - 1):
-            uh2[j] = uh2[j + 1] + uh2_ordinates[j] * p_r_uh2
-        uh2[-1] = uh2_ordinates[-1] * p_r_uh2
-        
-        # calculate the groundwater exchange F (eq. 18)
-        gw_exchange = x2 * (r_store[t - 1] / x3) ** 3.5
-        
-        # update routing store
-        r_store[t] = max(0, r_store[t - 1] + uh1[0] + gw_exchange)
-        
-        # outflow of routing store
-        q_r = r_store[t] * (1 - (1 + (r_store[t] / x3)**4)**(-0.25))
-        
-        # subtract outflow from routing store level
-        r_store[t] = r_store[t] - q_r
-        
-        # calculate flow component of unit hydrograph 2
-        q_d = max(0, uh2[0] + gw_exchange)
-        
-        # total discharge of this timestep
-        qsim[t] = q_r + q_d
-     
-    # only return the simulated timesteps, not the intial state 0    
-    return qsim[1:], s_store[1:], r_store[1:]
-            
-        

@@ -7,14 +7,14 @@ Setting up Python
 -----------------
 
 First of all you need to have Python. I highly recommend you to use Anaconda_.
-Got to there homepage and download and install the latest Python 3 installer.
+Go to their homepage and download and install the latest Python 3 installer.
 
 .. _Anaconda: https://www.continuum.io/downloads
 
 Downloading the source code
 ---------------------------
 
-Since this package is in the early stages of development I havn't added it to PyPI - Pythons Package Index - so you can't install it at the moment using ``pip``. For the moment you have to download the source code from GitHub. You can either download the entire repository as ``.zip`` and extract it to any destination on your machine
+Since this package is in the early stages of development I haven't added it to PyPI, Pythons Package Index. Therefore you can't install it at the moment using ``pip``. For the moment you have to download the source code from GitHub. To do so you can either download the entire repository as ``.zip`` and extract it to any destination on your machine:
 
 .. image:: _static/github_download_zip.png
    :target: _static/github_download_zip.png
@@ -30,7 +30,7 @@ Setting up RRMPGs Python dependencies
 -------------------------------------
 To use/develope this package, you have two different options:
 
-1. (recommended) You use a conda environment to use and develope this package. In the main directory is file included (``environment.yml``) that will setup everything for you by the following command:
+1. (recommended) You use a conda environment. In the main directory a file included (``environment.yml``) that will setup everything for you by the following command:
 
 From the terminal go to the ``RRMPG`` main directory and enter:
 
@@ -81,7 +81,9 @@ To be able to import this package the usual way in your python environment, ente
 
     python setup.py install
 
-This should install everything correctly. To confirm, that everything worked as expected you can test the following lines of code:
+This should install everything correctly. 
+
+To confirm, that everything worked as expected you can test the following lines of code:
 
 .. code-block:: bash
 

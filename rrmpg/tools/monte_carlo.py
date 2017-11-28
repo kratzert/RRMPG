@@ -12,7 +12,7 @@
 import numpy as np
 
 from ..models.basemodel import BaseModel
-from ..utils.metrics import nse, mse
+from ..utils.metrics import mse
 from ..utils.array_checks import validate_array_input
 
 
@@ -35,8 +35,8 @@ def monte_carlo(model, num, qobs=None, **kwargs):
         key 'params' contains a numpy array with the model parameter of each 
         simulation. 'qsim' is a 2D numpy array with the simulated streamflow 
         for each simulation. If an array of observed streamflow is provided,
-        one additional key is returned in the dictonary, being 'nse'. This key
-        contains an array of the Nash-Sutcliff-Efficiency for each simulation.
+        one additional key is returned in the dictonary, being 'mse'. This key
+        contains an array of the mean-squared-error for each simulation.
 
     Raises:
         ValueError: If any input contains invalid values.
@@ -57,32 +57,20 @@ def monte_carlo(model, num, qobs=None, **kwargs):
         # Validation check of qobs
         qobs = validate_array_input(qobs, np.float64, 'qobs')
     
-    # Initialize arrays for the params, simulations and model efficiency
-    params = np.zeros(num, dtype=model.get_dtype())
-    qsim = np.zeros((len(kwargs['prec']), num), dtype=np.float64)
-    nse_values = np.zeros(num, dtype=np.float64)
+    # Generate sets of random parameters
+    params = model.get_random_params(num=num)
 
-    # Perform monte-carlo-simulations
-    for n in range(num):
-        # generate random parameters
-        p = model.get_random_params()
+    # perform monte carlo simulation by calculating simulation of all param sets
+    qsim = model.simulate(params=params, **kwargs)
 
-        # store parameters to params array
-        for key, value in p.items():
-            params[key][n] = value
-
-        # set random params as model parameter
-        model.set_params(p)
-
-        # calculate simulation
-        qsim[:, n] = model.simulate(**kwargs)
+    if qobs is not None:  
+        # calculate nse of each simulation
+        mse_values = np.zeros(num, dtype=np.float64)
         
-        if qobs is not None: 
-            # calculate model efficiency
-            nse_values[n] = mse(qobs, qsim[:, n])
+        for n in range(num):
+            mse_values[n] = mse(qobs, qsim[:, n])
             
-    if qobs is not None:       
-        return {'params': params, 'qsim': qsim, 'mse': nse_values}
+        return {'params': params, 'qsim': qsim, 'mse': mse_values}
     
     else:
         return {'params': params, 'qsim': qsim}
