@@ -39,7 +39,7 @@ Contributors
 I'll add later a better looking section to the official documentation. For now I list everybody, who contributed to this repository here:
 
 - `Ondřej Čertík <https://github.com/certik>`_ with pull request `#3 <https://github.com/kratzert/RRMPG/pull/3>`_: Optimized Fortran code and compilation procedure for fair speed comparision.
-- `Daniel Klotz <https://github.com/danklotz>`_ with pull request `#4 <https://github.com/kratzert/RRMPG/pull/4>`_ and `#5 <https://github.com/kratzert/RRMPG/pull/4>`_: Both spell corrections.
+- `Daniel Klotz <https://github.com/danklotz>`_ with pull request `#4 <https://github.com/kratzert/RRMPG/pull/4>`_ , `#5 <https://github.com/kratzert/RRMPG/pull/4>`_ and `#9 <https://github.com/kratzert/RRMPG/pull/9>`_: All spell checking.
 
 Contact
 -------
