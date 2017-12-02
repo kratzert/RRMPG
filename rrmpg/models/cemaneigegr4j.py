@@ -252,7 +252,7 @@ class CemaneigeGR4J(BaseModel):
                  G[:, :, i], 
                  eTG[:, :, i],
                  s_store[:, i],
-                 r_store[:,i ]) = run_cemaneigegr4j(prec, mean_temp, etp,
+                 r_store[:, i]) = run_cemaneigegr4j(prec, mean_temp, etp,
                                                     frac_solid_prec,
                                                     snow_pack_init, 
                                                     thermal_state_init, 

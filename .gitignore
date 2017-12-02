@@ -7,8 +7,9 @@
 
 # folders to ignore
 build/
+dist/
 docs/build/
+rrmpg.egg-info/
 .settings/
-rrmpg/data/
 debug/
 .ipynb_checkpoints/
