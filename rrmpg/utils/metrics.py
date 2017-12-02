@@ -63,9 +63,9 @@ def nse(obs, sim):
     numerator = np.sum((sim-obs)**2)
 
     # calculate the NSE
-    nse = 1 - numerator/denominator
+    nse_val = 1 - numerator/denominator
     
-    return nse
+    return nse_val
 
 
 
@@ -90,9 +90,9 @@ def rmse(obs, sim):
     sim = validate_array_input(sim, np.float64, 'sim')
 
     # Calculate the rmse value
-    rmse = np.sqrt(np.mean((obs-sim)**2))
+    rmse_val = np.sqrt(np.mean((obs-sim)**2))
 
-    return rmse
+    return rmse_val
 
 
 def mse(obs, sim):
@@ -116,6 +116,6 @@ def mse(obs, sim):
     sim = validate_array_input(sim, np.float64, 'sim')
 
     # Calculate the rmse value
-    mse = np.mean((obs-sim)**2)
+    mse_val = np.mean((obs-sim)**2)
 
-    return mse 
+    return mse_val 
