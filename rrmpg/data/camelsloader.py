@@ -94,3 +94,36 @@ class CAMELSLoader(object):
     def get_basin_numbers(self):
         """Return a list of all available basin numbers."""            
         return self.VALID_BASINS
+    
+    def get_station_height(self, basin_number):
+        """Return the elevation of the meteorological station of one basin.
+        
+        Args:
+            basin_number: String of the basin number that shall be loaded.
+        
+        Returns:
+            The elevation of the meteorological station.
+            
+        Raises:
+            ValueError: If the basin number is an invalid number. Check the
+                .get_basin_numbers() function for a list of all available 
+                basins.
+        """
+        if basin_number not in self.VALID_BASINS:
+            msg = [f"Invalid basin number {basin_number}. Must be one of ",
+                   f"{self.VALID_BASINS}."]
+            raise ValueError("".join(msg))
+        
+        # Path object to data folder
+        data_dir = Path(__file__).parent / 'data' / 'camels'
+        
+        # Path object meteorological file
+        met_file = data_dir / f"{basin_number}_lump_cida_forcing_leap.txt"
+        
+        with open(met_file, 'r') as fp:
+            # elevation is specified in the second line
+            for i, line in enumerate(fp):
+                if i == 1:
+                    height = float(line.strip())
+                    
+        return height
