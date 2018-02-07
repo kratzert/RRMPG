@@ -13,9 +13,9 @@ Metrics
 -------
 .. currentmodule:: rrmpg.utils.metrics
 
-.. autofunction:: mse
-.. autofunction:: rmse
-.. autofunction:: nse
+.. autofunction:: calc_mse
+.. autofunction:: calc_rmse
+.. autofunction:: calc_nse
 
 Array Checks
 ------------
