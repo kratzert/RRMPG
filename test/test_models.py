@@ -126,6 +126,28 @@ class TestHBVEdu(unittest.TestCase):
         expr = ("In the precipitation array are negative values." in
                 str(context.exception)) 
         self.assertTrue(expr)
+        
+    def test_simulated_against_validation_data(self):
+        test_dir = os.path.dirname(__file__)
+        daily_file = os.path.join(test_dir, 'data', 'hbv_daily_inputs.txt')
+        daily_inputs = pd.read_csv(daily_file, sep='\t',
+                                   names=['date', 'month', 'temp', 'prec'])
+        monthly_file = os.path.join(test_dir, 'data', 'hbv_monthly_inputs.txt')
+        monthly_inputs = pd.read_csv(monthly_file, sep=' ', 
+                                     names=['temp', 'not_needed', 'evap'])
+        # fix parameters from provided MATLAB code from HBV paper
+        area = 410
+        soil_init = 100
+        s1_init = 3
+        s2_init = 10
+        
+        """
+        TODO:
+        Need to find someone who can run the matlab code for me with fixed
+        parameters. Then perform validation against simulated time series from
+        MATLAB code with fixed parameters.
+        """
+        
     
 class TestGR4J(unittest.TestCase):
     """Test the GR4J Model.
