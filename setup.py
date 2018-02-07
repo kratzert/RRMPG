@@ -1,5 +1,4 @@
-from distutils.core import setup
-
+from setuptools import setup
 import rrmpg
 
 setup(
@@ -10,7 +9,8 @@ setup(
     description=("Rainfall-Runoff-Model-PlayGround: a Python library for"
                  "hydrological modeling."),
     url="https//www.github.com/kratzert/RRMPG",
-    packages=["rrmpg", "rrmpg.models", "rrmpg.tools", "rrmpg.utils"],
+    packages=["rrmpg", "rrmpg.models", "rrmpg.tools", "rrmpg.utils", "rrmpg.data"],
+    include_package_data=True,
     license="MIT-License",
     keywords="hydrology rainfall-runoff modeling",
     classifiers=[

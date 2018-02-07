@@ -7,3 +7,4 @@ Documentation
    models
    tools
    utils
+   data
