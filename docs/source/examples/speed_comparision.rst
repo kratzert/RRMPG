@@ -62,7 +62,7 @@ Next we are going to define three different functions:
    raised if numba can't compile the function.
 3. ``abc_model_fortan``: A fortan version of the ABC-model. In previous
    version this was done using the f2py module which added some overhead
-   to the function call and was no fair benchmark (see `pull request #3 <https://github.com/kratzert/RRMPG/pull/3>`_).
+   to the function call and was no fair benchmark (see pull request #3).
    Now the Fortran implementation is wrapped in a Cython function.
 
 Note how for this simple model the only difference between the pure
@@ -136,7 +136,7 @@ of the model is the same.
 
 .. parsed-literal::
 
-    Overwriting abc.f90
+    Writing abc.f90
 
 
 .. code:: python
@@ -158,7 +158,7 @@ of the model is the same.
 
 .. parsed-literal::
 
-    Overwriting abc_py.pyx
+    Writing abc_py.pyx
 
 
 Compile the Fortran and Cython module
@@ -179,6 +179,7 @@ Compile the Fortran and Cython module
     gcc -o abc_py.o -c abc_py.c -I$CONDA_PREFIX/include/python3.6m/ $CFLAGS
     gcc -o abc_py.so abc_py.o abc.o -L$CONDA_PREFIX/lib -lpython3.6m -lgfortran -shared
 
+
 .. code:: python
 
     # Now we can import it like a normal Python module
@@ -195,7 +196,7 @@ each of the functions
 
 .. parsed-literal::
 
-    6.94 s ± 258 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+    5.83 s ± 70.1 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
 
 .. code:: python
@@ -206,7 +207,7 @@ each of the functions
 
 .. parsed-literal::
 
-    32.6 ms ± 52.7 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+    33.3 ms ± 707 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
 
 
 .. code:: python
@@ -217,7 +218,7 @@ each of the functions
 
 .. parsed-literal::
 
-    23.4 ms ± 934 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+    23.7 ms ± 37.7 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
 
 
 As you can see by the raw numbers, Fortran (as expected) is the fastest,
@@ -237,7 +238,7 @@ function, the rest (the magic) is done by the Numba library.
 
 .. parsed-literal::
 
-    205.15122150338178
+    174.3980506055237
 
 
 
@@ -259,7 +260,7 @@ meteorology.
 
 .. parsed-literal::
 
-    1.451113966128858
+    1.3963906102603512
 
 
 
