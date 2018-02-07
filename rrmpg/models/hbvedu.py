@@ -16,7 +16,7 @@ from scipy import optimize
 
 from .basemodel import BaseModel
 from .hbvedu_model import run_hbvedu
-from ..utils.metrics import mse
+from ..utils.metrics import calc_mse
 from ..utils.array_checks import check_for_negatives, validate_array_input
 
 
@@ -330,6 +330,6 @@ def _loss(X, *args):
     qsim = (qsim * area * 1000) / (24 * 60 * 60)
 
     # Calculate the Mean-Squared-Error as optimization criterion
-    loss_value = mse(qobs, qsim)
+    loss_value = calc_mse(qobs, qsim)
 
     return loss_value

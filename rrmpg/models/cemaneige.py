@@ -21,7 +21,7 @@ from .cemaneige_utils import (extrapolate_precipitation,
                               extrapolate_temperature,
                               calculate_solid_fraction)
 from ..utils.array_checks import validate_array_input, check_for_negatives
-from ..utils.metrics import mse
+from ..utils.metrics import calc_mse
 
 class Cemaneige(BaseModel):
     """Interface to the Cemaneige snow routine.
@@ -381,7 +381,7 @@ def _loss(X, *args):
                                   params[0])
     
     # calculate loss as the mean squared error
-    loss_value = mse(obs, outflow)
+    loss_value = calc_mse(obs, outflow)
     
     return loss_value
 

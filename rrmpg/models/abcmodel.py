@@ -18,7 +18,7 @@ from scipy import optimize
 
 from .basemodel import BaseModel
 from .abcmodel_model import run_abcmodel
-from ..utils.metrics import mse
+from ..utils.metrics import calc_mse
 from ..utils.array_checks import check_for_negatives, validate_array_input
 
 
@@ -250,7 +250,7 @@ def _loss(X, *args):
     qsim, _ = run_abcmodel(prec, initial_state, params[0])
 
     # Calculate the Mean-Squared-Error as optimization criterion
-    loss_value = mse(qobs, qsim)
+    loss_value = calc_mse(qobs, qsim)
 
     return loss_value
 

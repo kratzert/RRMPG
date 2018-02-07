@@ -13,18 +13,18 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from rrmpg.utils.metrics import nse, rmse, mse
+from rrmpg.utils.metrics import calc_nse, calc_rmse, calc_mse
 from rrmpg.utils.array_checks import check_for_negatives, validate_array_input
 
 class TestNSE(unittest.TestCase):
     """Test of the NSE function."""
     
     def test_nse_for_equal_arrays(self):
-        self.assertEqual(nse(obs=[1,2,3], sim=[1,2,3]), 1)
+        self.assertEqual(calc_nse(obs=[1,2,3], sim=[1,2,3]), 1)
         
     def test_nse_constant_obs(self):
         with self.assertRaises(RuntimeError) as context:
-            _ = nse(obs=[2,2,2], sim=[1,2,3])
+            _ = calc_nse(obs=[2,2,2], sim=[1,2,3])
         msg = ["The Nash-Sutcliffe-Efficiency coefficient is not defined ",
                "for the case, that all values in the observations are equal.",
                " Maybe you should use the Mean-Squared-Error instead."]
@@ -32,27 +32,27 @@ class TestNSE(unittest.TestCase):
         self.assertTrue(expr)
         
     def test_nse_simulation_equals_obs_mean(self):
-        self.assertEqual(nse(obs=[1,2,3], sim=[2,2,2]), 0)
+        self.assertEqual(calc_nse(obs=[1,2,3], sim=[2,2,2]), 0)
         
         
 class TestRMSE(unittest.TestCase):
     """Test of the RMSE function."""
     
     def test_rmse_for_equal_arrays(self):
-        self.assertEqual(rmse(obs=[1,2,3], sim=[1,2,3]), 0)
+        self.assertEqual(calc_rmse(obs=[1,2,3], sim=[1,2,3]), 0)
         
     def test_rmse_for_nonequal_arrays(self):
-        self.assertEqual(rmse(obs=[1,1,1], sim=[3,3,3]), 2)
+        self.assertEqual(calc_rmse(obs=[1,1,1], sim=[3,3,3]), 2)
 
 
 class TestMSE(unittest.TestCase):
     """Test of the MSE function."""
     
     def test_mse_for_equal_arrays(self):
-        self.assertEqual(mse(obs=[1,2,3], sim=[1,2,3]), 0)
+        self.assertEqual(calc_mse(obs=[1,2,3], sim=[1,2,3]), 0)
         
     def test_mse_for_nonequal_arrays(self):
-        self.assertEqual(mse(obs=[1,1,1], sim=[3,3,3]), 4)        
+        self.assertEqual(calc_mse(obs=[1,1,1], sim=[3,3,3]), 4)        
         
 
 class TestCheckForNegatives(unittest.TestCase):

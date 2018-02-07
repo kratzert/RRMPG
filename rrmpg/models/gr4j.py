@@ -18,7 +18,7 @@ from scipy import optimize
 from .basemodel import BaseModel
 from .gr4j_model import run_gr4j
 from ..utils.array_checks import validate_array_input, check_for_negatives
-from ..utils.metrics import mse
+from ..utils.metrics import calc_mse
 
 
 class GR4J(BaseModel):
@@ -270,7 +270,7 @@ def _loss(X, *args):
     qsim, _, _ = run_gr4j(prec, etp, s_init, r_init, params[0])
     
     # Calculate the loss of the fit as the mean squared error
-    loss_value = mse(qobs, qsim)
+    loss_value = calc_mse(qobs, qsim)
     
     return loss_value
 

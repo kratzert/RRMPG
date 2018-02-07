@@ -12,7 +12,7 @@
 import numpy as np
 
 from ..models.basemodel import BaseModel
-from ..utils.metrics import mse
+from ..utils.metrics import calc_mse
 from ..utils.array_checks import validate_array_input
 
 
@@ -68,7 +68,7 @@ def monte_carlo(model, num, qobs=None, **kwargs):
         mse_values = np.zeros(num, dtype=np.float64)
         
         for n in range(num):
-            mse_values[n] = mse(qobs, qsim[:, n])
+            mse_values[n] = calc_mse(qobs, qsim[:, n])
             
         return {'params': params, 'qsim': qsim, 'mse': mse_values}
     

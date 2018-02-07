@@ -20,7 +20,7 @@ import numpy as np
 
 from .array_checks import validate_array_input
 
-def nse(obs, sim):
+def calc_nse(obs, sim):
     """Calculate the Nash-Sutcliffe model efficiency coefficient.
 
     Original Publication:
@@ -69,7 +69,7 @@ def nse(obs, sim):
 
 
 
-def rmse(obs, sim):
+def calc_rmse(obs, sim):
     """Calculate the root mean squared error.
 
     Args:
@@ -95,7 +95,7 @@ def rmse(obs, sim):
     return rmse_val
 
 
-def mse(obs, sim):
+def calc_mse(obs, sim):
     """Calculate the mean squared error.
 
     Args:
