@@ -6,3 +6,5 @@
 #
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
+
+from .camelsloader import CAMELSLoader

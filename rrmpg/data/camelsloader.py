@@ -7,14 +7,9 @@
 #
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
-import os
 import pandas as pd
-import numpy as np
 
 from pathlib import Path
-
-CAMELS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data',
-                          'camels')
 
 class CAMELSLoader(object):
     """Interface for loading basin data from the CAMELS dataset.
@@ -33,17 +28,40 @@ class CAMELSLoader(object):
     [2] https://ncar.github.io/hydrology/datasets/CAMELS_attributes
     
     """
+    VALID_BASINS = ['01031500']
+    
     def __init__(self):
         pass
     
     def load_basin(self, basin_number):
-        """Load basin with all its data into pandas Dataframe."""
-        met_file = f"{basin_number}_lump_cida_forcing_leap.txt"
-        streamflow_file = f"{basin_number}_streamflow_qc.txt"
+        """Load basin data pandas Dataframe.
         
-        # create full path objects to files
-        met_file = Path(CAMELS_DIR) / met_file
-        streamflow_file = Path(CAMELS_DIR) / streamflow_file
+        Load the meteorological data, as well as observed discharge and modeled
+        potential evapotranspiration of the specified basin from the CAMELS
+        data set.
+        
+        Args:
+            basin_number: String of the basin number that shall be loaded.
+        
+        Returns:
+            A pandas DataFrame with the data of the basin.
+            
+        Raises:
+            ValueError: If the basin number is an invalid number. Check the
+                .get_basin_numbers() function for a list of all available 
+                basins.
+        """
+        if basin_number not in self.VALID_BASINS:
+            msg = [f"Invalid basin number {basin_number}. Must be one of ",
+                   f"{self.VALID_BASINS}."]
+            raise ValueError("".join(msg))
+        
+        # Path object to data folder
+        data_dir = Path(__file__).parent / 'data' / 'camels'
+        
+        # Path object to the two needed text files
+        met_file = data_dir / f"{basin_number}_lump_cida_forcing_leap.txt"
+        streamflow_file = data_dir / f"{basin_number}_05_model_output.txt"
         
         # read metorological input file
         df = pd.read_csv(met_file, sep='\s+', header=3)
@@ -52,33 +70,27 @@ class CAMELSLoader(object):
         dates = df.Year.map(str) +'/'+ df.Mnth.map(str) +'/'+ df.Day.map(str)
         df.index = pd.to_datetime(dates, format="%Y/%m/%d")
         
-        # read area from thrid line
-        area = pd.read_csv(met_file, header=None, skiprows=2, 
-                           nrows=1)[0].tolist()[0]
         
-        # load streamflow data and copy qobs in the dataframe from above
-        col_names = ['basin', 'Year', 'Mnth', 'Day', 'QObs', 'flag']
-        df2 = pd.read_csv(streamflow_file, sep='\s+', names=col_names)
-        dates = df2.Year.map(str) +'/'+ df2.Mnth.map(str) +'/'+ df2.Day.map(str)
+        # load model output data, which contains normalized qobs
+        df2 = pd.read_csv(streamflow_file, sep='\s+', header=0)
+        dates = df2.YR.map(str) +'/'+ df2.MNTH.map(str) +'/'+ df2.DY.map(str)
         df2.index = pd.to_datetime(dates, format="%Y/%m/%d")
         
-        # convert from cubic feet per second to mm/d
-        df['QObs(mm/d)'] = df2['QObs']*(0.3048**3)*1000*86400/area
+        # copy qobs and pet
+        df['PET'] = df2['PET']
+        df['QObs(mm/d)'] = df2['OBS_RUN']
+ 
+        # drop unnecessary columns
+        df = df.drop(['Year', 'Mnth', 'Day', 'Hr'], axis=1)
                 
         # only return values of complete hydrological years
-        start_date = pd.to_datetime(f"{df.Year[0]}/09/30", format="%Y/%m/%d")
-        end_date = pd.to_datetime(f"{df.Year[-1]}/09/30", format="%Y/%m/%d")
+        start_date = pd.to_datetime(f"{df.index[0].year}/10/01", 
+                                    format="%Y/%m/%d")
+        end_date = pd.to_datetime(f"{df.index[-1].year}/09/30", 
+                                  format="%Y/%m/%d")
             
         return df[start_date:end_date]
         
     def get_basin_numbers(self):
-        """Return a list of all available basin numbers."""
-        files = [f[:8] for f in os.listdir(CAMELS_DIR)]
-        return list(set(files))
-    
-    def get_random_basin(self):
-        """Load a basin of the provided data randomly."""
-        basin_numbers = self.get_basin_numbers()
-        num = np.random.randint(0, len(basin_numbers))
-        print(f"Loading data of basin {num}.")
-        return self.load_basin(num)
+        """Return a list of all available basin numbers."""            
+        return self.VALID_BASINS
