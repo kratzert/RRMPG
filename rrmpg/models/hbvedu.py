@@ -10,8 +10,6 @@
 
 """Interface to the educational version of the HBV model."""
 
-import numbers
-
 import numpy as np
 
 from scipy import optimize
@@ -32,13 +30,12 @@ class HBVEdu(BaseModel):
     parameter set.
 
     Args:
-        area: Area of the basin.
         params: (optional) Dictonary containing all model parameters as a
             seperate key/value pairs.
 
     Raises:
-        ValueError: If Area isn't a positive numerical value or on model
-            parameter is missing in the passed dictonary.
+        ValueError: If a dictionary of model parameters is passed but one of
+            the parameters is missing.
             
     [1] Aghakouchak, Amir, and Emad Habib. "Application of a conceptual 
     hydrologic model in teaching hydrologic processes." International Journal 
@@ -76,25 +73,19 @@ class HBVEdu(BaseModel):
                        ('K_p', np.float64),
                        ('L', np.float64)])
 
-    def __init__(self, area, params=None):
+    def __init__(self, params=None):
         """Initialize a HBVEdu model object.
 
         Args:
-            area: Area of the basin.
             params: (optional) Dictonary containing all model parameters as a
                 seperate key/value pairs.
 
         Raises:
-            ValueError: If Area isn't a positive numerical value or on model
-                parameter is missing in the passed dictonary.
+            ValueError: If a dictionary of model parameters is passed but one of
+                the parameters is missing.
 
         """
         super().__init__(params=params)
-        # Parse inputs
-        if (isinstance(area, numbers.Number) and (area > 0)):
-            self.area = area
-        else:
-            raise ValueError("Area must be a positiv numercial value.")
 
     def simulate(self, temp, prec, month, PE_m, T_m, snow_init=0, soil_init=0,
                  s1_init=0, s2_init=0, return_storage=False, params=None):
@@ -208,22 +199,12 @@ class HBVEdu(BaseModel):
                  s2[:,i]) = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init,
                                        soil_init, s1_init, s2_init, params)
     
-                # TODO: conversion from qobs in m³/s for different time resolutions
-                # At the moment expects daily input data
-                qsim[:,i] = (qsim[:,i] * self.area * 1000) / (24 * 60 * 60)
-                
-                
-            
             else:
                 # call the actual simulation function
                 qsim[:,i], _, _, _, _ = run_hbvedu(temp, prec, month, PE_m, T_m, 
                                                    snow_init, soil_init, 
                                                    s1_init, s2_init, params[i])
     
-                # TODO: conversion from qobs in m³/s for different time resolutions
-                # At the moment expects daily input data
-                qsim = (qsim * self.area * 1000) / (24 * 60 * 60)
-        
         if return_storage:
             return qsim, snow, soil, s1, s2
         else:

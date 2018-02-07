@@ -103,7 +103,7 @@ class TestHBVEdu(unittest.TestCase):
     """Test HBVEdu specific functions."""
     
     def setUp(self):
-        self.model = HBVEdu(area=100)
+        self.model = HBVEdu()
         
     def test_model_subclass_of_basemodel(self):
         self.assertTrue(issubclass(self.model.__class__, BaseModel))    
