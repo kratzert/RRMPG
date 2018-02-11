@@ -40,6 +40,7 @@ I'll add later a better looking section to the official documentation. For now I
 
 - `Ondřej Čertík <https://github.com/certik>`_ with pull request `#3 <https://github.com/kratzert/RRMPG/pull/3>`_: Optimized Fortran code and compilation procedure for fair speed comparision.
 - `Daniel Klotz <https://github.com/danklotz>`_ with pull request `#4 <https://github.com/kratzert/RRMPG/pull/4>`_ , `#5 <https://github.com/kratzert/RRMPG/pull/4>`_ and `#9 <https://github.com/kratzert/RRMPG/pull/9>`_: All spell checking.
+- `Andrew MacDonald <https://github.com/amacd31>`_ for providing HBV-Edu simulation data from the original MATLAB implementation (see `##10 <https://github.com/kratzert/RRMPG/issues/10>`_)
 
 Contact
 -------

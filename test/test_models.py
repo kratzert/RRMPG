@@ -103,7 +103,19 @@ class TestHBVEdu(unittest.TestCase):
     """Test HBVEdu specific functions."""
     
     def setUp(self):
-        self.model = HBVEdu()
+        # parameter set see https://github.com/kratzert/RRMPG/issues/10
+        params = {'T_t': 0,
+                  'DD': 4.25,
+                  'FC': 177.1,
+                  'Beta': 2.35,
+                  'C': 0.02,
+                  'PWP': 105.89,
+                  'K_0': 0.05,
+                  'K_1': 0.03,
+                  'K_2': 0.02,
+                  'K_p': 0.05,
+                  'L': 4.87}
+        self.model = HBVEdu(params=params)
         
     def test_model_subclass_of_basemodel(self):
         self.assertTrue(issubclass(self.model.__class__, BaseModel))    
@@ -135,18 +147,31 @@ class TestHBVEdu(unittest.TestCase):
         monthly_file = os.path.join(test_dir, 'data', 'hbv_monthly_inputs.txt')
         monthly_inputs = pd.read_csv(monthly_file, sep=' ', 
                                      names=['temp', 'not_needed', 'evap'])
+        
+        qsim_matlab_file = os.path.join(test_dir, 'data', 'hbv_qsim.csv')
+        qsim_matlab = pd.read_csv(qsim_matlab_file, header=None, 
+                                  names=['qsim'])
         # fix parameters from provided MATLAB code from HBV paper
         area = 410
         soil_init = 100
         s1_init = 3
         s2_init = 10
         
-        """
-        TODO:
-        Need to find someone who can run the matlab code for me with fixed
-        parameters. Then perform validation against simulated time series from
-        MATLAB code with fixed parameters.
-        """
+        qsim = self.model.simulate(temp=daily_inputs.temp, 
+                                   prec=daily_inputs.prec, 
+                                   month=daily_inputs.month, 
+                                   PE_m=monthly_inputs.evap, 
+                                   T_m=monthly_inputs.temp, 
+                                   snow_init=0, 
+                                   soil_init=soil_init, 
+                                   s1_init=s1_init, 
+                                   s2_init=s2_init, 
+                                   return_storage=False)
+        
+        # rescale qsim from mm/d to m³/s
+        qsim = (qsim * area * 1000) / (24*60*60)
+       
+        self.assertTrue(np.allclose(qsim.flatten(), qsim_matlab.qsim))
         
     
 class TestGR4J(unittest.TestCase):
