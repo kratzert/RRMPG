@@ -16,6 +16,10 @@ Metrics
 .. autofunction:: calc_mse
 .. autofunction:: calc_rmse
 .. autofunction:: calc_nse
+.. autofunction:: calc_kge
+.. autofunction:: calc_alpha_nse
+.. autofunction:: calc_beta_nse
+.. autofunction:: calc_r
 
 Array Checks
 ------------
