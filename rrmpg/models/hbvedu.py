@@ -7,17 +7,15 @@
 #
 # You should have received a copy of the MIT License along with RRMPG. If not,
 # see <https://opensource.org/licenses/MIT>
-
 """Interface to the educational version of the HBV model."""
 
 import numpy as np
-
 from scipy import optimize
 
+from ..utils.array_checks import check_for_negatives, validate_array_input
+from ..utils.metrics import calc_mse
 from .basemodel import BaseModel
 from .hbvedu_model import run_hbvedu
-from ..utils.metrics import calc_mse
-from ..utils.array_checks import check_for_negatives, validate_array_input
 
 
 class HBVEdu(BaseModel):
@@ -44,34 +42,28 @@ class HBVEdu(BaseModel):
     """
 
     # List of model parameters
-    _param_list = ['T_t', 'DD', 'FC', 'Beta', 'C', 'PWP', 'K_0', 'K_1', 'K_2',
-                   'K_p', 'L']
+    _param_list = ['T_t', 'DD', 'FC', 'Beta', 'C', 'PWP', 'K_0', 'K_1', 'K_2', 'K_p', 'L']
 
     # Dictionary with default parameter bounds
-    _default_bounds = {'T_t': (-1, 1),
-                       'DD': (3, 7),
-                       'FC': (100, 200),
-                       'Beta': (1, 7),
-                       'C': (0.01, 0.07),
-                       'PWP': (90, 180),
-                       'K_0': (0.05, 0.2),
-                       'K_1': (0.01, 0.1),
-                       'K_2': (0.01, 0.05),
-                       'K_p': (0.01, 0.05),
-                       'L': (2, 5)}
+    _default_bounds = {
+        'T_t': (-1, 1),
+        'DD': (3, 7),
+        'FC': (100, 200),
+        'Beta': (1, 7),
+        'C': (0.01, 0.07),
+        'PWP': (90, 180),
+        'K_0': (0.05, 0.2),
+        'K_1': (0.01, 0.1),
+        'K_2': (0.01, 0.05),
+        'K_p': (0.01, 0.05),
+        'L': (2, 5)
+    }
 
     # Custom numpy datatype needed for numba input
-    _dtype = np.dtype([('T_t', np.float64),
-                       ('DD', np.float64),
-                       ('FC', np.float64),
-                       ('Beta', np.float64),
-                       ('C', np.float64),
-                       ('PWP', np.float64),
-                       ('K_0', np.float64),
-                       ('K_1', np.float64),
-                       ('K_2', np.float64),
-                       ('K_p', np.float64),
-                       ('L', np.float64)])
+    _dtype = np.dtype([('T_t', np.float64), ('DD', np.float64), ('FC', np.float64),
+                       ('Beta', np.float64), ('C', np.float64), ('PWP', np.float64),
+                       ('K_0', np.float64), ('K_1', np.float64), ('K_2', np.float64),
+                       ('K_p', np.float64), ('L', np.float64)])
 
     def __init__(self, params=None):
         """Initialize a HBVEdu model object.
@@ -87,8 +79,18 @@ class HBVEdu(BaseModel):
         """
         super().__init__(params=params)
 
-    def simulate(self, temp, prec, month, PE_m, T_m, snow_init=0, soil_init=0,
-                 s1_init=0, s2_init=0, return_storage=False, params=None):
+    def simulate(self,
+                 temp,
+                 prec,
+                 month,
+                 PE_m,
+                 T_m,
+                 snow_init=0,
+                 soil_init=0,
+                 s1_init=0,
+                 s2_init=0,
+                 return_storage=False,
+                 params=None):
         """Simulate rainfall-runoff process for given input.
 
         This function bundles the model parameters and validates the
@@ -134,25 +136,28 @@ class HBVEdu(BaseModel):
         # Check if there exist negative precipitation
         if check_for_negatives(prec):
             raise ValueError("In the precipitation array are negative values.")
-        
+
         month = validate_array_input(month, np.int8, 'month')
         if any(len(arr) != len(temp) for arr in [prec, month]):
-            msg = ["The arrays of the temperature, precipitation and month ",
-                   "data must be of equal size."]
+            msg = [
+                "The arrays of the temperature, precipitation and month ",
+                "data must be of equal size."
+            ]
             raise RuntimeError("".join(msg))
 
         # Validation check for PE_m and T_m
         PE_m = validate_array_input(PE_m, np.float64, 'PE_m')
         T_m = validate_array_input(T_m, np.float64, 'T_m')
         if any(len(arr) != 12 for arr in [PE_m, T_m]):
-            msg = ["The monthly potential evapotranspiration and temperature",
-                   " array must be of length 12."]
+            msg = [
+                "The monthly potential evapotranspiration and temperature",
+                " array must be of length 12."
+            ]
             raise RuntimeError("".join(msg))
 
         # Check if entries of month array are between 1 and 12
         if (np.min(month) < 1) or (np.max(month) > 12):
-            msg = ["The month array must be between an integer1 (Jan) and ",
-                   "12 (Dec)."]
+            msg = ["The month array must be between an integer1 (Jan) and ", "12 (Dec)."]
             raise ValueError("".join(msg))
 
         # For correct python indexing [start with 0] subtract 1 of month array
@@ -169,17 +174,19 @@ class HBVEdu(BaseModel):
             params = np.zeros(1, dtype=self._dtype)
             for param in self._param_list:
                 params[param] = getattr(self, param)
-        
+
         # Else, check the param input for correct datatype
         else:
             if params.dtype != self._dtype:
-                msg = ["The model parameters must be a numpy array of the ",
-                       "models own custom data type."]
+                msg = [
+                    "The model parameters must be a numpy array of the ",
+                    "models own custom data type."
+                ]
                 raise TypeError("".join(msg))
             # if only one parameter set is passed, expand dimensions to 1D
             if isinstance(params, np.void):
                 params = np.expand_dims(params, params.ndim)
-        
+
         # Create output arrays
         qsim = np.zeros((prec.shape[0], params.size), np.float64)
         if return_storage:
@@ -187,31 +194,36 @@ class HBVEdu(BaseModel):
             soil = np.zeros((prec.shape[0], params.size), np.float64)
             s1 = np.zeros((prec.shape[0], params.size), np.float64)
             s2 = np.zeros((prec.shape[0], params.size), np.float64)
-        
+
         # call simulation function for each parameter set
-        for i in range(params.size):   
+        for i in range(params.size):
             if return_storage:
                 # call the actual simulation function
-                (qsim[:,i], 
-                 snow[:,i], 
-                 soil[:,i], 
-                 s1[:,i], 
-                 s2[:,i]) = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init,
-                                       soil_init, s1_init, s2_init, params)
-    
+                (qsim[:, i], snow[:, i], soil[:, i], s1[:, i],
+                 s2[:, i]) = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init, soil_init, s1_init,
+                                        s2_init, params)
+
             else:
                 # call the actual simulation function
-                qsim[:,i], _, _, _, _ = run_hbvedu(temp, prec, month, PE_m, T_m, 
-                                                   snow_init, soil_init, 
-                                                   s1_init, s2_init, params[i])
-    
+                qsim[:, i], _, _, _, _ = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init,
+                                                    soil_init, s1_init, s2_init, params[i])
+
         if return_storage:
             return qsim, snow, soil, s1, s2
         else:
             return qsim
 
-    def fit(self, qobs, temp, prec, month, PE_m, T_m, snow_init=0.,
-            soil_init=0., s1_init=0., s2_init=0.):
+    def fit(self,
+            qobs,
+            temp,
+            prec,
+            month,
+            PE_m,
+            T_m,
+            snow_init=0.,
+            soil_init=0.,
+            s1_init=0.,
+            s2_init=0.):
         """Fit the HBVEdu model to a timeseries of discharge.
 
         This functions uses scipy's global optimizer (differential evolution)
@@ -251,25 +263,28 @@ class HBVEdu(BaseModel):
         # Check if there exist negative precipitation
         if check_for_negatives(prec):
             raise ValueError("In the precipitation array are negative values.")
-        
+
         month = validate_array_input(month, np.int8, 'month')
         if any(len(arr) != len(temp) for arr in [prec, month]):
-            msg = ["The arrays of the temperature, precipitation and month ",
-                   "data must be of equal size."]
+            msg = [
+                "The arrays of the temperature, precipitation and month ",
+                "data must be of equal size."
+            ]
             raise RuntimeError("".join(msg))
 
         # Validation check for PE_m and T_m
         PE_m = validate_array_input(PE_m, np.float64, 'PE_m')
         T_m = validate_array_input(T_m, np.float64, 'T_m')
         if any(len(arr) != 12 for arr in [PE_m, T_m]):
-            msg = ["The monthly potential evapotranspiration and temperature",
-                   " array must be of length 12."]
+            msg = [
+                "The monthly potential evapotranspiration and temperature",
+                " array must be of length 12."
+            ]
             raise RuntimeError("".join(msg))
 
         # Check if entries of month array are between 1 and 12
         if (np.min(month) < 1) or (np.max(month) > 12):
-            msg = ["The month array must be between an integer1 (Jan) and ",
-                   "12 (Dec)."]
+            msg = ["The month array must be between an integer1 (Jan) and ", "12 (Dec)."]
             raise ValueError("".join(msg))
 
         # For correct python indexing [start with 0] subtract 1 of month array
@@ -282,10 +297,10 @@ class HBVEdu(BaseModel):
         s2_init = float(s2_init)
 
         # pack input arguments for scipy optimizer
-        args = (qobs, temp, prec, month, PE_m, T_m, snow_init, soil_init,
-                s1_init, s2_init, self._dtype, self.area)
+        args = (qobs, temp, prec, month, PE_m, T_m, snow_init, soil_init, s1_init, s2_init,
+                self._dtype)
         bnds = tuple([self._default_bounds[p] for p in self._param_list])
-        
+
         # call scipy's global optimizer
         res = optimize.differential_evolution(_loss, bounds=bnds, args=args)
 
@@ -306,7 +321,6 @@ def _loss(X, *args):
     s1_init = args[8]
     s2_init = args[9]
     dtype = args[10]
-    area = args[11]
 
     # Create custom numpy array of model parameters
     params = np.zeros(1, dtype=dtype)
@@ -323,11 +337,8 @@ def _loss(X, *args):
     params['L'] = X[10]
 
     # Calculate simulated streamflow
-    qsim,_,_,_,_ = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init,
-                              soil_init, s1_init, s2_init, params[0])
-    
-    # transform discharge to m³/s
-    qsim = (qsim * area * 1000) / (24 * 60 * 60)
+    qsim, _, _, _, _ = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init, soil_init, s1_init,
+                                  s2_init, params[0])
 
     # Calculate the Mean-Squared-Error as optimization criterion
     loss_value = calc_mse(qobs, qsim)

@@ -68,10 +68,6 @@ Model inputs for simulation:
 * PE_m: long-term mean monthly potential evapotranspiration.
 * T_m: long-term mean monthly temperature.
 
-Basin specification
-"""""""""""""""""""
-* area: Area of the basin in [m²]
-
 Class documentation
 """""""""""""""""""
 
