@@ -233,7 +233,7 @@ class TestCemaneige(unittest.TestCase):
                                    df.max_temp, met_station_height=495, 
                                    altitudes=[550, 620, 700, 785, 920])
         self.assertTrue(np.allclose(qsim.flatten(), 
-                                    df.liquid_outflow.as_matrix()))
+                                    df.liquid_outflow.to_numpy()))
         
 class TestCemaneigeGR4J(unittest.TestCase):
     """Test the Cemaneige + GR4J couple model.
@@ -265,4 +265,4 @@ class TestCemaneigeGR4J(unittest.TestCase):
                                    altitudes=[550, 620, 700, 785, 920],
                                    s_init=0.6, r_init=0.7)
         self.assertTrue(np.allclose(qsim.flatten(), 
-                                    df.qsim.as_matrix()))
+                                    df.qsim.to_numpy()))
