@@ -201,7 +201,7 @@ class HBVEdu(BaseModel):
                 # call the actual simulation function
                 (qsim[:, i], snow[:, i], soil[:, i], s1[:, i],
                  s2[:, i]) = run_hbvedu(temp, prec, month, PE_m, T_m, snow_init, soil_init, s1_init,
-                                        s2_init, params)
+                                        s2_init, params[i])
 
             else:
                 # call the actual simulation function
