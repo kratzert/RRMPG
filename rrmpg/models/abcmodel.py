@@ -98,7 +98,7 @@ class ABCModel(BaseModel):
             # sample parameter 'b' between lower bound 0 and upper bnd (1 - a)
             params['b'][i] = np.random.uniform(low=self._default_bounds['b'][0],
                                                high=(1-params['a'][i]),
-                                               size=1)
+                                               size=1).item()
         
         return params
 
