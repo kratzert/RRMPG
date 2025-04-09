@@ -1,6 +1,6 @@
  name: docenv3
  dependencies:
-   - python=3.6
+   - python=3.10
    - numpy
    - matplotlib
    - numba
