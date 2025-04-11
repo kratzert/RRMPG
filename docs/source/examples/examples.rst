@@ -8,3 +8,4 @@ Here will follow some example applications of the RRMPG library.
 
    speed_comparision
    model_api_example
+   Tutorial_Hysteresis_IceMelt

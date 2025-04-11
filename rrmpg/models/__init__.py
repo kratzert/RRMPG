@@ -13,3 +13,6 @@ from .hbvedu import HBVEdu
 from .gr4j import GR4J
 from .cemaneige import Cemaneige
 from .cemaneigegr4j import CemaneigeGR4J
+from .cemaneigehystgr4j import CemaneigeHystGR4J
+from .cemaneigegr4jice import CemaneigeGR4JIce
+from .cemaneigehystgr4jice import CemaneigeHystGR4JIce
