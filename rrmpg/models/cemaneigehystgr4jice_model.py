@@ -93,7 +93,7 @@ def run_cemaneigehystgr4jice(prec, mean_temp, etp, frac_ice, frac_solid_prec, sn
     icemelt = run_icemelt(mean_temp, G, params)
     
     # calculate total icemelt
-    icemelt =np.sum(icemelt * frac_ice[np.newaxis, :], axis=1)
+    icemelt = np.sum(icemelt * frac_ice[np.newaxis, :], axis=1)
 
     # calculate total liquid water
     liquid_water = snowmelt + icemelt
