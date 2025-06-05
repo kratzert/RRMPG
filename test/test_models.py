@@ -14,7 +14,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from rrmpg.models import ABCModel, HBVEdu, GR4J, Cemaneige, CemaneigeGR4J
+from rrmpg.models import ABCModel, HBVEdu, GR4J, Cemaneige, CemaneigeGR4J, CemaneigeHystGR4J, CemaneigeHystGR4JIce
 from rrmpg.models.basemodel import BaseModel
 
 class TestBaseModelFunctions(unittest.TestCase):
@@ -266,3 +266,91 @@ class TestCemaneigeGR4J(unittest.TestCase):
                                    s_init=0.6, r_init=0.7)
         self.assertTrue(np.allclose(qsim.flatten(), 
                                     df.qsim.to_numpy()))
+
+class TestCemaneigeHystGR4J(unittest.TestCase):
+    """Test the CemaneigeHysteresis + GR4J couple model.
+
+    XX
+    """
+
+    def setUp(self):
+        # parameters are taken from the excel sheet
+        params = {
+            "Thacc": 18.6,
+            "Rsp": 0.22,  # for CemaneigeHystGR4J
+            "CTG": 0.78,
+            "Kf": 4.02,
+            "x1": 546,
+            "x2": 0.53,
+            "x3": 276,
+            "x4": 1.32,
+        }
+        self.model = CemaneigeHystGR4J(params=params)
+
+    def test_model_subclass_of_basemodel(self):
+        self.assertTrue(issubclass(self.model.__class__, BaseModel))
+
+    def test_simulate_compare_against_excel(self):
+        test_dir = os.path.dirname(__file__)
+        data_file = os.path.join(
+            test_dir, "data", "cemaneigehystgr4j_validation_data.csv"
+        )
+        df = pd.read_csv(data_file, index_col=0)
+        qsim = self.model.simulate(
+            df.precipitation,
+            df.mean_temp,
+            df.min_temp,
+            df.max_temp,
+            df.pe,
+            met_station_height=700,
+            altitudes=[550, 620, 700, 785, 920],
+            s_init=0.5,
+            r_init=0.4,
+        )
+        self.assertTrue(np.allclose(qsim.flatten(), df.qsim.to_numpy()))
+
+class TestCemaneigeHystGR4JIce(unittest.TestCase):
+    """Test the CemaneigeHysteresis + Ice model + GR4J couple model.
+
+    XX
+    """
+
+    def setUp(self):
+        # parameters are taken from the excel sheet
+        params = {
+            "Thacc": 18.6,
+            "Rsp": 0.22,  # for CemaneigeHystGR4J
+            "CTG": 0.78,
+            "Kf": 4.02,
+            "x1": 546,
+            "x2": 0.53,
+            "x3": 276,
+            "x4": 1.32,
+            "DDF": 5,  # Degree Day Factor for Ice
+        }
+        self.model = CemaneigeHystGR4JIce(params=params)
+
+    def test_model_subclass_of_basemodel(self):
+        self.assertTrue(issubclass(self.model.__class__, BaseModel))
+
+    def test_simulate_compare_against_excel(self):
+        test_dir = os.path.dirname(__file__)
+        data_file = os.path.join(
+            test_dir, "data", "cemaneigehystgr4jice_validation_data.csv"
+        )
+        df = pd.read_csv(data_file, index_col=0)
+        frac_ice = np.array([0.02, 0.04, 0.25, 0.51, 0.71])
+        qsim = self.model.simulate(
+            df.precipitation,
+            df.mean_temp,
+            df.min_temp,
+            df.max_temp,
+            df.pe,
+            frac_ice,
+            met_station_height=700,
+            altitudes=[550, 620, 700, 785, 920],
+            s_init=0.5,
+            r_init=0.4,
+            sca_init=0.2,
+        )
+        self.assertTrue(np.allclose(qsim.flatten(), df.qsim.to_numpy()))
