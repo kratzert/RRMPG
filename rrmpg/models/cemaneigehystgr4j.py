@@ -13,8 +13,6 @@
 import numbers
 import numpy as np
 import pandas as pd
-import spotpy
-from spotpy.objectivefunctions import kge
 from scipy import optimize
 
 from .basemodel import BaseModel
@@ -23,7 +21,7 @@ from .cemaneige_utils import (extrapolate_precipitation,
                               extrapolate_temperature,
                               calculate_solid_fraction)
 from ..utils.array_checks import validate_array_input, check_for_negatives
-from ..utils.metrics import calc_mse
+from ..utils.metrics import calc_mse, calc_kge
 
 class CemaneigeHystGR4J(BaseModel):
     """Interface to the Cemaneige Hysteresis + GR4J coupled hydrological model.
@@ -606,9 +604,9 @@ def _loss(X, *args):
     
     # calculate loss according to metric
     if loss_metric == "mse":
-        loss_value = calc_mse1(obs, outflow)
+        loss_value = calc_mse(obs, outflow)
     elif loss_metric == "kge":
-        loss_value = kge1(obs, outflow)
+        loss_value = calc_kge(obs, outflow)
     else:
         raise ValueError("Invalid loss_metric. Choose 'mse' or 'kge'.")
             
@@ -664,19 +662,19 @@ def _loss_Q_SCA(X, *args):
 
     # Choose loss function based on loss_metric argument
     if loss_metric == "mse":
-        loss_q = calc_mse1(obs, outflow)
-        loss_sca1 = calc_mse1(NDSI1, sca1)
-        loss_sca2 = calc_mse1(NDSI2, sca2)
-        loss_sca3 = calc_mse1(NDSI3, sca3)
-        loss_sca4 = calc_mse1(NDSI4, sca4)
-        loss_sca5 = calc_mse1(NDSI5, sca5)
+        loss_q = calc_mse(obs, outflow)
+        loss_sca1 = calc_mse(NDSI1, sca1)
+        loss_sca2 = calc_mse(NDSI2, sca2)
+        loss_sca3 = calc_mse(NDSI3, sca3)
+        loss_sca4 = calc_mse(NDSI4, sca4)
+        loss_sca5 = calc_mse(NDSI5, sca5)
     elif loss_metric == "kge":
-        loss_q = 1 - kge1(obs, outflow) 
-        loss_sca1 = 1 - kge1(NDSI1, sca1)
-        loss_sca2 = 1 - kge1(NDSI2, sca2)
-        loss_sca3 = 1 - kge1(NDSI3, sca3)
-        loss_sca4 = 1 - kge1(NDSI4, sca4)
-        loss_sca5 = 1 - kge1(NDSI5, sca5)
+        loss_q = 1 - calc_kge(obs, outflow) 
+        loss_sca1 = 1 - calc_kge(NDSI1, sca1)
+        loss_sca2 = 1 - calc_kge(NDSI2, sca2)
+        loss_sca3 = 1 - calc_kge(NDSI3, sca3)
+        loss_sca4 = 1 - calc_kge(NDSI4, sca4)
+        loss_sca5 = 1 - calc_kge(NDSI5, sca5)
     else:
         raise ValueError("Invalid loss_metric. Choose 'mse' or 'kge'.")
 
@@ -691,11 +689,3 @@ def _loss_Q_SCA(X, *args):
     )
     
     return loss_value
-
-def calc_mse1(evaluation, simulation):
-    df = pd.DataFrame({"obs": evaluation, "sim": simulation}).dropna()
-    return calc_mse(df["obs"].values, df["sim"].values)
-
-def kge1(evaluation, simulation):
-    df = pd.DataFrame({"obs": evaluation, "sim": simulation}).dropna()
-    return kge(df["obs"].values, df["sim"].values)
