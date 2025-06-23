@@ -43,6 +43,8 @@ I'll add later a better looking section to the official documentation. For now I
 - `Andrew MacDonald <https://github.com/amacd31>`_ for providing HBV-Edu simulation data from the original MATLAB implementation (see `##10 <https://github.com/kratzert/RRMPG/issues/10>`_)
 - `Martijn Visser <https://github.com/visr>`_ with pull request `#13 <https://github.com/kratzert/RRMPG/pull/13>`_ to update the unittest for pandas 1.0
 - `Martin Gauch <https://github.com/gauchm>`_ with pull request `#14 <https://github.com/kratzert/RRMPG/pull/14>`_ to fix a bug in the HBV model, when running multiple parameter sets at once.
+- `martinma10 <https://github.com/martinma10>`_ with pull request `#18 <https://github.com/kratzert/RRMPG/pull/18>`_ adding Snow Hysteresis and Icemelt model.
+
 
 Contact
 -------
