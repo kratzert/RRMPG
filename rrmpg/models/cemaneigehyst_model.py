@@ -145,6 +145,9 @@ def run_cemaneigehyst(prec, mean_temp, frac_solid_prec, snow_pack_init,
             # Calculate actual snow melt
             melt = (0.9 * sca[t, l] + 0.1) * pot_melt
 
+            # Ensure melt does not exceed snow pack
+            melt = min(melt, G[t, l])
+
             # Update snow pack
             G[t, l] = G[t, l] - melt
 
