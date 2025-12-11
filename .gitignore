@@ -13,3 +13,4 @@ rrmpg.egg-info/
 .settings/
 debug/
 .ipynb_checkpoints/
+.venv/
